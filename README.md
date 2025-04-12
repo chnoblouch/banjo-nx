@@ -1,11 +1,11 @@
 # Banjo on the Nintendo Switch
 
 This is a fork of my Banjo programming language that supports cross-compiling
-homebrew applications/games for the Nintendo Switch. For more information about
-the language itself, see the [main
+homebrew applications/games for the Nintendo Switch. This only works on Linux so
+far. For more information about the language itself, see the [main
 repository](https://github.com/chnoblouch/banjo-lang/).
 
-## Building
+## Building the Toolchain
 
 ### Prerequisites
 
@@ -16,7 +16,7 @@ repository](https://github.com/chnoblouch/banjo-lang/).
 ### Build Commands
 
 ```
-cmake -Bbuild -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=install
+cmake -Bbuild -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=install
 cmake --build build --target install
 ```
 
@@ -25,11 +25,12 @@ can start using the `banjo` command. To check if everything worked out, run
 `banjo targets`. The list should include a target called
 `aarch64-nintendoswitch-devkitpro`.
 
-## Creating and Building a New Project
+## Creating a New Project
 
 To build Nintendo Switch executables, you need to install the devkitPro
 toolchain as explained [here](https://devkitpro.org/wiki/Getting_Started). Make
-sure you've installed the `switch-dev` tools.
+sure to install the `switch-dev` tools and that the environment variable
+`DEVKITPRO` is set to `/opt/devkitpro`.
 
 After that, you can create a new Banjo project by running `banjo new <name>`.
 Open `src/main.bnj` in your editor, delete the existing content, and paste the
