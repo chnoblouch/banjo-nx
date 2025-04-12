@@ -103,6 +103,10 @@ def do_build(config, toolchain, args):
     if use_assembler:
         Assembler.cleanup(toolchain)
 
+    post_link_tool = toolchain.get_post_link_tool()
+    if post_link_tool is not None:
+        post_link_tool.run(config, toolchain)
+
     time_after = time.perf_counter()
     time_between = time_after - time_before
 

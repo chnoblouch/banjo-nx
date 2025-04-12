@@ -36,6 +36,9 @@ class Toolchain:
     def get_linker(self):
         raise NotImplementedError()
 
+    def get_post_link_tool(self):
+        return None
+
     def store_in_file(self):
         file = open(self.target.toolchain_file_path, "w")
         json.dump(self.store(), file, indent=2)
