@@ -1,0 +1,31 @@
+@[link_name=consoleInit]
+native func console_init(console: addr) -> addr;
+
+@[link_name=consoleUpdate]
+native func console_update(console: addr);
+
+@[link_name=consoleExit]
+native func console_exit(console: addr);
+
+@[link_name=padConfigureInput]
+native func pad_configure_input(max_players: u32, style_set: u32);
+
+@[link_name=padInitializeWithMask]
+native func pad_initialize_with_mask(pad: addr, mask: u64);
+
+@[link_name=padUpdate]
+native func pad_update(pad: addr);
+
+@[link_name=appletMainLoop]
+native func applet_main_loop() -> bool;
+
+func pad_initialize_default(pad: addr) {
+    var pad_ids: [u64; 2] = [0, 0x20];
+    var pad_mask: u64 = 0;
+
+    for i in 0..2 {
+        pad_mask |= 1 as u64 << pad_ids[i];
+    }
+
+    pad_initialize_with_mask(pad, pad_mask);
+}
