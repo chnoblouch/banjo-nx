@@ -20,12 +20,14 @@ enum class OperatingSystem {
     MACOS,
     ANDROID,
     IOS,
+    NINTENDOSWITCH,
 };
 
 enum class Environment {
     NONE,
     MSVC,
     GNU,
+    DEVKITPRO,
 };
 
 class TargetDescription {

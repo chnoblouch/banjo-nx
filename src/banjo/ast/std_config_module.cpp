@@ -2,6 +2,7 @@
 
 #include "banjo/ast/ast_node.hpp"
 #include "banjo/config/config.hpp"
+#include "banjo/target/target_description.hpp"
 
 namespace banjo {
 
@@ -17,6 +18,7 @@ enum ConfigOS {
     LINUX = 1,
     MACOS = 2,
     ANDROID = 3,
+    NINTENDOSWITCH = 4,
 };
 
 enum ConfigBuildConfig {
@@ -39,6 +41,7 @@ StdConfigModule::StdConfigModule() : ASTModule({"std", "config"}), config(Config
     add_const_u32("LINUX", LINUX);
     add_const_u32("MACOS", MACOS);
     add_const_u32("ANDROID", ANDROID);
+    add_const_u32("NINTENDOSWITCH", NINTENDOSWITCH);
     add_const_u32("OS", get_os());
 
     append_child(block);
@@ -58,6 +61,7 @@ unsigned StdConfigModule::get_os() {
         case target::OperatingSystem::LINUX: return LINUX;
         case target::OperatingSystem::MACOS: return MACOS;
         case target::OperatingSystem::ANDROID: return ANDROID;
+        case target::OperatingSystem::NINTENDOSWITCH: return NINTENDOSWITCH;
         default: return 0;
     }
 }

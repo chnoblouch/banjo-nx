@@ -33,6 +33,7 @@ std::string TargetDescription::to_string() const {
         case OperatingSystem::MACOS: os_name = "macos"; break;
         case OperatingSystem::ANDROID: os_name = "android"; break;
         case OperatingSystem::IOS: os_name = "ios"; break;
+        case OperatingSystem::NINTENDOSWITCH: os_name = "nintendoswitch"; break;
     }
 
     if (environment == Environment::NONE) {
@@ -44,6 +45,7 @@ std::string TargetDescription::to_string() const {
         case Environment::NONE: break;
         case Environment::MSVC: env_name = "msvc"; break;
         case Environment::GNU: env_name = "gnu"; break;
+        case Environment::DEVKITPRO: env_name = "devkitpro"; break;
     }
 
     return arch_name + "-" + os_name + "-" + env_name;
@@ -54,7 +56,7 @@ bool TargetDescription::is_windows() const {
 }
 
 bool TargetDescription::is_unix() const {
-    return operating_system == OperatingSystem::LINUX;
+    return operating_system == OperatingSystem::LINUX || operating_system == OperatingSystem::NINTENDOSWITCH;
 }
 
 bool TargetDescription::is_darwin() const {

@@ -34,6 +34,8 @@ std::string AArch64Target::get_output_file_ext() {
         return "o";
     } else if (descr.get_operating_system() == OperatingSystem::MACOS) {
         return "o";
+    } else if (descr.get_operating_system() == OperatingSystem::NINTENDOSWITCH) {
+        return "o";
     } else {
         return "s";
     }
@@ -47,6 +49,7 @@ codegen::Emitter *AArch64Target::create_emitter(mcode::Module &module, std::ostr
     switch (descr.get_operating_system()) {
         case OperatingSystem::LINUX: return new codegen::ELFEmitter(module, stream, descr);
         case OperatingSystem::MACOS: return new codegen::MachOEmitter(module, stream, descr);
+        case OperatingSystem::NINTENDOSWITCH: return new codegen::ELFEmitter(module, stream, descr);
         default: return new codegen::AArch64AsmEmitter(module, stream, descr);
     }
 }

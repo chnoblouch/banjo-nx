@@ -16,7 +16,7 @@ meta if os.IS_UNIX {
     const S_IFCHR: u32 = 0o020000;
     const S_IFIFO: u32 = 0o010000;
 
-    meta if config.OS == config.LINUX {
+    meta if config.OS == config.LINUX || config.OS == config.NINTENDOSWITCH {
         struct Stat {
             var dev: u64;
             var ino: u64;
@@ -154,7 +154,7 @@ meta if os.IS_UNIX {
     native func getaddrinfo(node: *u8, service: *u8, hints: *Addrinfo, res: **Addrinfo) -> i32;
     native func freeaddrinfo(res: *Addrinfo);
 
-    meta if config.OS == config.LINUX {
+    meta if config.OS == config.LINUX || config.OS == config.NINTENDOSWITCH {
         native func __errno_location() -> *i32;
 
         pub func errno() -> i32 {

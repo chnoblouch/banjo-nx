@@ -87,10 +87,12 @@ target::TargetDescription ConfigParser::create_target(const ParsedArgs &args) {
     else if (os_name == "macos") os = target::OperatingSystem::MACOS;
     else if (os_name == "android") os = target::OperatingSystem::ANDROID;
     else if (os_name == "ios") os = target::OperatingSystem::IOS;
+    else if (os_name == "nintendoswitch") os = target::OperatingSystem::NINTENDOSWITCH;
     else os = target::OperatingSystem::WINDOWS;
 
     if (env_name == "msvc") env = target::Environment::MSVC;
     else if (env_name == "gnu") env = target::Environment::GNU;
+    else if (env_name == "devkitpro") env = target::Environment::DEVKITPRO;
     else env = target::Environment::NONE;
 
     return target::TargetDescription(arch, os, env);
