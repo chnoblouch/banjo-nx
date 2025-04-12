@@ -3,6 +3,7 @@ from mingw import MinGWToolchain
 from linux import LinuxToolchain
 from macos import MacosToolchain
 from llvm import LlvmAndroidToolchain
+from devkitpro import DevkitProToolchain
 from target import Target
 
 import json
@@ -48,5 +49,7 @@ def from_target(target: Target) -> Toolchain:
         return LlvmAndroidToolchain(target)
     elif target.os == "ios":
         return MacosToolchain(target)
+    elif target.os == "nintendoswitch":
+        return DevkitProToolchain(target)
 
     return None

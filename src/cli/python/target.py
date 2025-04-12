@@ -47,6 +47,7 @@ class Target:
             Target("x86_64", "linux", "gnu"),
             Target("aarch64", "linux", "gnu"),
             Target("aarch64", "macos"),
+            Target("aarch64", "nintendoswitch", "devkitpro"),
         ]
 
     @property
@@ -66,6 +67,8 @@ class Target:
             return "msvc"
         elif os == "linux":
             return "gnu"
+        elif os == "nintendoswitch":
+            return "devkitpro"
         else:
             return None
 
@@ -82,6 +85,7 @@ class Target:
             Target("x86_64", "linux", "gnu"),
             Target("aarch64", "linux", "gnu"),
             Target("aarch64", "macos"),
+            Target("aarch64", "nintendoswitch", "devkitpro"),
         )
 
 

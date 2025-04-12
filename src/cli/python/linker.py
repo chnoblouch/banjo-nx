@@ -231,3 +231,41 @@ class DarwinLinker(Linker):
 
     def cleanup(self, input: LinkerInput):
         os.remove("main.o")
+
+
+class DevkitProLinker(Linker):
+
+    def __init__(self):
+        pass
+
+    def build_command(self, input: LinkerInput):
+        executable = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-gcc"
+        output_path = str(Path(input.output_dir) / input.config.name) + ".elf"
+
+        command = [
+            executable,
+            "-specs=/opt/devkitpro/libnx/switch.specs",
+            "-march=armv8-a+crc+crypto",
+            "-mtune=cortex-a57",
+            "-mtp=soft",
+            "-fPIE",
+            "-o", output_path,
+            "main.o",
+            "-L/opt/devkitpro/portlibs/switch/lib",
+            "-L/opt/devkitpro/libnx/lib",
+            "-lnx",
+        ]
+
+        for library_path in input.config.library_paths:
+            command.append("-L" + library_path)
+
+        for library in input.config.libraries:
+            command.append("-l" + library)
+
+        for linked_object_file in input.config.linked_object_files:
+            command.append(linked_object_file)
+
+        return command
+    
+    def cleanup(self, input: LinkerInput):
+        os.remove("main.o")
