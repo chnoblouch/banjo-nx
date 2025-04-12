@@ -59,7 +59,7 @@ endif()
 # link_libraries(clang_rt.asan-x86_64.lib)
 
 string(TIMESTAMP VERSION "%Y-%m-%d")
-add_compile_definitions(BANJO_VERSION="${VERSION}")
+add_compile_definitions(BANJO_VERSION="banjo-nx ${VERSION}")
 
 if((TARGET_OS STREQUAL "windows" OR TARGET_OS STREQUAL "linux") AND TARGET_ARCH STREQUAL "x86_64")
     message(STATUS "Hot reloader enabled")
