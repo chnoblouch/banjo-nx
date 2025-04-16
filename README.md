@@ -11,7 +11,7 @@ repository](https://github.com/chnoblouch/banjo-lang/).
 
 - CMake
 - Python 3
-- A C++ compiler (I've tested MSVC, Clang on Windows and Linux, GCC, and Apple Clang)
+- A C++ compiler
 
 ### Build Commands
 
@@ -23,7 +23,19 @@ cmake --build build --target install
 After building, add the `install/bin` directory to your `PATH` variable. Now you
 can start using the `banjo` command. To check if everything worked out, run
 `banjo targets`. The list should include a target called
-`aarch64-nintendoswitch-devkitpro`.
+`aarch64-nintendoswitch-devkitpro`:
+
+```
+$ banjo targets
+
+Available targets:
+  - x86_64-windows-msvc
+  - x86_64-windows-gnu
+  - x86_64-linux-gnu (host)
+  - aarch64-linux-gnu
+  - aarch64-macos
+  - aarch64-nintendoswitch-devkitpro
+```
 
 ## Creating a New Project
 
