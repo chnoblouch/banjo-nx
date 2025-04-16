@@ -37,6 +37,6 @@ func write_to_stdout(data: *u8, size: usize) {
         var bytes_written: winapi.Dword;
         winapi.write_file(handle, data, size as winapi.Dword, &bytes_written, null);
     } else if os.IS_UNIX {
-        fwrite(data, size, 1, posix.stdout);
+        fwrite(data, size, 1, posix.stdout());
     }
 }

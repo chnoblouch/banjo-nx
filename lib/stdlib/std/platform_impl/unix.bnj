@@ -23,15 +23,15 @@ meta if IS_UNIX {
     }
 
     pub func io_get_stdin_stream() -> addr {
-        return posix.stdin;
+        return posix.stdin();
     }
 
     pub func io_get_stdout_stream() -> addr {
-        return posix.stdout;
+        return posix.stdout();
     }
 
     pub func io_get_stderr_stream() -> addr {
-        return posix.stderr;
+        return posix.stderr();
     }
 
     pub func path_exists(path: *String) -> bool {
