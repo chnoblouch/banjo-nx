@@ -51,8 +51,6 @@ following snippet:
 ```
 use libnx as nx;
 
-native func puts(*u8);
-
 func main() {
     nx.console_init(null);
     nx.pad_configure_input(1, 31);
@@ -60,7 +58,7 @@ func main() {
     var pad: [u8; 56];
     nx.pad_initialize_default(&pad[0]);
 
-    puts("Hello, Switch!");
+    println("Hello, Switch!");
 
     while nx.applet_main_loop() {
         nx.pad_update(&pad[0]);
