@@ -1,5 +1,7 @@
 #include "writer.hpp"
 
+#include <sstream>
+
 namespace banjo {
 
 namespace ssa {
@@ -9,11 +11,11 @@ Writer::Writer(std::ostream &stream) : stream(stream) {}
 void Writer::write(Module &mod) {
     if (!mod.get_structures().empty()) {
         for (ssa::Structure *struct_ : mod.get_structures()) {
-            stream << "struct @" << struct_->name << " {\n";
+            stream << "struct @" << struct_->name << ":\n";
             for (const StructureMember &member : struct_->members) {
-                stream << "    " << type_to_str(member.type) << " @" << member.name << "\n";
+                stream << "    field " << type_to_str(member.type) << " @" << member.name << "\n";
             }
-            stream << "}\n\n";
+            stream << "\n";
         }
     }
 
@@ -34,7 +36,7 @@ void Writer::write(Module &mod) {
 
     if (!mod.get_globals().empty()) {
         for (Global *global : mod.get_globals()) {
-            stream << "def global " << type_to_str(global->type) << " @" << global->name;
+            stream << "global " << type_to_str(global->type) << " @" << global->name;
             stream << " = " << global_value_to_str(global->initial_value) << "\n";
         }
         stream << "\n";
@@ -42,7 +44,7 @@ void Writer::write(Module &mod) {
 
     if (!mod.get_dll_exports().empty()) {
         for (const std::string &dll_export : mod.get_dll_exports()) {
-            stream << "def dllexport @" << dll_export << "\n";
+            stream << "dllexport @" << dll_export << "\n";
         }
         stream << "\n";
     }
@@ -50,7 +52,6 @@ void Writer::write(Module &mod) {
     if (!mod.get_functions().empty()) {
         for (Function *function : mod.get_functions()) {
             write_func_def(function);
-            stream << "\n";
         }
     }
 
@@ -60,7 +61,7 @@ void Writer::write(Module &mod) {
 void Writer::write_func_decl(FunctionDecl &func_decl) {
     const FunctionType &func_type = func_decl.type;
 
-    stream << "decl func ";
+    stream << "func ";
     stream << calling_conv_to_str(func_type.calling_conv) + " ";
     stream << type_to_str(func_type.return_type) + " ";
     stream << "@" + func_decl.name;
@@ -81,7 +82,7 @@ void Writer::write_func_decl(FunctionDecl &func_decl) {
 void Writer::write_func_def(Function *func_def) {
     const FunctionType &func_type = func_def->type;
 
-    stream << "def func ";
+    stream << "func ";
     stream << calling_conv_to_str(func_type.calling_conv) + " ";
     stream << type_to_str(func_type.return_type) + " ";
     stream << "@" + func_def->name;
@@ -96,7 +97,7 @@ void Writer::write_func_def(Function *func_def) {
         }
     }
 
-    stream << ")" << "\n";
+    stream << "):" << "\n";
 
     for (BasicBlock &basic_block : func_def->get_basic_blocks()) {
         write_basic_block(basic_block);
@@ -105,7 +106,7 @@ void Writer::write_func_def(Function *func_def) {
 
 void Writer::write_basic_block(BasicBlock &basic_block) {
     if (basic_block.has_label()) {
-        stream << basic_block.get_label();
+        stream << "@" << basic_block.get_label();
 
         if (!basic_block.get_param_regs().empty()) {
             stream << "(";
@@ -187,12 +188,12 @@ void Writer::write_basic_block(BasicBlock &basic_block) {
 
             Operand &operand = instr.get_operands()[i];
 
-            if (operand.get_type() != Type(Primitive::VOID)) {
-                stream << type_to_str(operand.get_type());
-                if (!operand.is_type()) {
-                    stream << " ";
-                }
+            // if (operand.get_type() != Type(Primitive::VOID)) {
+            stream << type_to_str(operand.get_type());
+            if (!operand.is_type()) {
+                stream << " ";
             }
+            // }
 
             stream.flush();
             stream << value_to_str(operand);
@@ -247,8 +248,12 @@ std::string Writer::type_to_str(Type type) {
 
 std::string Writer::value_to_str(Value value) {
     if (value.is_int_immediate()) return value.get_int_immediate().to_string();
-    else if (value.is_fp_immediate()) return std::to_string(value.get_fp_immediate());
-    else if (value.is_register()) return reg_to_str(value.get_register());
+    else if (value.is_fp_immediate()) {
+        std::stringstream stream;
+        stream << value.get_fp_immediate();
+        std::string string = stream.str();
+        return string.find('.') == std::string::npos ? string + ".0" : string;
+    } else if (value.is_register()) return reg_to_str(value.get_register());
     else if (value.is_symbol()) return "@" + value.get_symbol_name();
     else if (value.is_branch_target()) {
         std::string str = "@" + value.get_branch_target().block->get_label();
