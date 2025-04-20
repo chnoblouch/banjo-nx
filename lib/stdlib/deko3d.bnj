@@ -43,11 +43,11 @@ type CmdList = addr;
 
 struct DeviceFlags {
     const DEPTH_ZERO_TO_ONE: u32 = 0 as u32 << 8;
-	const DEPTH_MINUS_ONE_TO_ONE: u32 = 1 as u32 << 8;
-	const ORIGIN_UPPER_LEFT: u32 = 0 as u32 << 9;
-	const ORIGIN_LOWER_LEFT: u32 = 1 as u32 << 9;
-	const Y_AXIS_POINTS_UP: u32 = 0 as u32 << 10;
-	const Y_AXIS_POINTS_DOWN: u32 = 1 as u32 << 10;
+    const DEPTH_MINUS_ONE_TO_ONE: u32 = 1 as u32 << 8;
+    const ORIGIN_UPPER_LEFT: u32 = 0 as u32 << 9;
+    const ORIGIN_LOWER_LEFT: u32 = 1 as u32 << 9;
+    const Y_AXIS_POINTS_UP: u32 = 0 as u32 << 10;
+    const Y_AXIS_POINTS_DOWN: u32 = 1 as u32 << 10;
 }
 
 struct DeviceMaker {
@@ -56,6 +56,16 @@ struct DeviceMaker {
     var cb_alloc: func(user_data: addr, alignment: u64, size: u64, out: *addr) -> Result;
     var cb_free: func(user_data: addr, mem: addr) -> void;
     var flags: u32;
+
+    pub func new() -> DeviceMaker {
+        return DeviceMaker {
+            user_data: null,
+            cb_debug: null,
+            cb_alloc: null,
+            cb_free: null,
+            flags: DeviceFlags.DEPTH_ZERO_TO_ONE | DeviceFlags.ORIGIN_UPPER_LEFT,
+        };
+    }
 }
 
 struct MemAccess {
@@ -86,12 +96,29 @@ struct MemBlockMaker {
     var size: u32;
     var flags: u32;
     var storage: addr;
+
+    pub func new(device: Device, size: u32) -> MemBlockMaker {
+        return MemBlockMaker {
+            device: device,
+            size: size,
+            flags: MemBlockFlags.CPU_UNCACHED | MemBlockFlags.GPU_CACHED,
+            storage: null,
+        };
+    }
 }
 
 struct CmdBufMaker {
     var device: Device;
     var user_data: addr;
     var cb_add_mem: func(user_data: addr, cmdbuf: CmdBuf, min_req_size: usize);
+
+    pub func new(device: Device) -> CmdBufMaker {
+        return CmdBufMaker {
+            device: device,
+            user_data: null,
+            cb_add_mem: null,
+        };
+    }
 }
 
 struct QueueFlags {
@@ -114,6 +141,17 @@ struct QueueMaker {
     var flush_threshold: u32;
     var per_warp_scratch_memory_size: u32;
     var max_concurrent_compute_jobs: u32;
+
+    pub func new(device: Device) -> QueueMaker {
+        return QueueMaker {
+            device: device,
+            flags: QueueFlags.GRAPHICS | QueueFlags.COMPUTE | QueueFlags.MEDIUM_PRIO | QueueFlags.ENABLE_ZCULL,
+            command_memory_size: 0x10000,
+            flush_threshold: 0x2000,
+            per_warp_scratch_memory_size: 0x800,
+            max_concurrent_compute_jobs: 128,
+        };
+    }
 }
 
 enum ImageType {
@@ -162,6 +200,19 @@ struct ImageLayoutMaker {
     var dimensions: [u32; 3];
     var mip_levels: u32;
     var pitch_stride_or_tile_size: u32;
+
+    pub func new(device: Device) -> ImageLayoutMaker {
+        return ImageLayoutMaker {
+            device: device,
+            type_: ImageType.TYPE_2D,
+            flags: 0,
+            format: ImageFormat.NONE,
+            ms_mode: MsMode.MODE_1X,
+            dimensions: [0, 0, 0],
+            mip_levels: 1,
+            pitch_stride_or_tile_size: 0,
+        };
+    }
 }
 
 struct ImageView {
@@ -174,6 +225,20 @@ struct ImageView {
     var layer_count: u16;
     var mip_level_offset: u8;
     var mip_level_count: u8;
+
+    pub func new(image: *Image) -> ImageView {
+        return ImageView {
+            image: image,
+            type_: ImageType.NONE,
+            format: ImageFormat.NONE,
+            swizzle: [ImageSwizzle.RED, ImageSwizzle.GREEN, ImageSwizzle.BLUE, ImageSwizzle.ALPHA],
+            ds_source: DsSource.DEPTH,
+            layer_offset: 0,
+            layer_count: 0,
+            mip_level_offset: 0,
+            mip_level_count: 0,
+        };
+    }
 }
 
 struct Viewport {
@@ -194,14 +259,36 @@ struct Scissor {
 
 struct RasterizerState {
     var data: u32;
+
+    func new() -> RasterizerState {
+        return RasterizerState { data: 0x00000751 };
+    }
 }
 
 struct ColorState {
     var data: u32;
+
+    func new() -> ColorState {
+        return ColorState { data: 0x00080300 };
+    }
+}
+
+struct ColorMask {
+    const R: u32 = 1 as u32 << 0;
+    const G: u32 = 1 as u32 << 1;
+    const B: u32 = 1 as u32 << 2;
+    const A: u32 = 1 as u32 << 3;
+
+    const RGB: u32 = R | G | B;
+    const RGBA: u32 = R | G | B | A;
 }
 
 struct ColorWriteState {
     var data: u32;
+
+    pub func new() -> ColorWriteState {
+        return ColorState { data: 0xFFFFFFFF };
+    }
 }
 
 struct SwapchainMaker {
@@ -209,78 +296,15 @@ struct SwapchainMaker {
     var native_window: addr;
     var images: **Image;
     var num_images: u32;
-}
 
-func device_maker_defaults(maker: *DeviceMaker) {
-    maker.user_data = null;
-    maker.cb_debug = null;
-    maker.cb_alloc = null;
-    maker.cb_free = null;
-    maker.flags = DeviceFlags.DEPTH_ZERO_TO_ONE | DeviceFlags.ORIGIN_UPPER_LEFT;
-}
-
-func mem_block_maker_defaults(maker: *MemBlockMaker, device: Device, size: u32) {
-    maker.device = device;
-    maker.size = size;
-    maker.flags = MemBlockFlags.CPU_UNCACHED | MemBlockFlags.GPU_CACHED;
-    maker.storage = null;
-}
-
-func cmd_buf_maker_defaults(maker: *CmdBufMaker, device: Device) {
-    maker.device = device;
-    maker.user_data = null;
-    maker.cb_add_mem = null;
-}
-
-func queue_maker_defaults(maker: *QueueMaker, device: Device) {
-    maker.device = device;
-    maker.flags = QueueFlags.GRAPHICS | QueueFlags.COMPUTE | QueueFlags.MEDIUM_PRIO | QueueFlags.ENABLE_ZCULL;
-    maker.command_memory_size = 0x10000;
-    maker.flush_threshold = 0x2000;
-    maker.per_warp_scratch_memory_size = 0x800;
-    maker.max_concurrent_compute_jobs = 128;
-}
-
-func image_layout_maker_defaults(maker: *ImageLayoutMaker, device: Device) {
-	maker.device = device;
-	maker.type_ = ImageType.TYPE_2D;
-	maker.flags = 0;
-	maker.format = ImageFormat.NONE;
-	maker.ms_mode = MsMode.MODE_1X;
-	maker.dimensions = [0, 0, 0];
-	maker.mip_levels = 1;
-	maker.pitch_stride_or_tile_size = 0;
-}
-
-func image_view_defaults(obj: *ImageView, image: *Image) {
-	obj.image = image;
-	obj.type_ = ImageType.NONE;
-	obj.format = ImageFormat.NONE;
-    obj.swizzle = [ImageSwizzle.RED, ImageSwizzle.GREEN, ImageSwizzle.BLUE, ImageSwizzle.ALPHA];
-	obj.ds_source = DsSource.DEPTH;
-	obj.layer_offset = 0;
-	obj.layer_count = 0;
-	obj.mip_level_offset = 0;
-	obj.mip_level_count = 0;
-}
-
-func rasterizer_state_defaults(state: *RasterizerState) {
-    state.data = 0x00000751;
-}
-
-func color_state_defaults(state: *ColorState) {
-    state.data = 0x00080300;
-}
-
-func color_write_state_defaults(state: *ColorWriteState) {
-    state.data = 0xFFFFFFFF;
-}
-
-func swapchain_maker_defaults(maker: *SwapchainMaker, device: Device, native_window: addr, images: **Image, num_images: u32) {
-    maker.device = device;
-    maker.native_window = native_window;
-    maker.images = images;
-    maker.num_images = num_images;
+    func new(device: Device, native_window: addr, images: **Image, num_images: u32) -> SwapchainMaker {
+        return SwapchainMaker {
+            device: device,
+            native_window: native_window,
+            images: images,
+            num_images: num_images,
+        };
+    }
 }
 
 @[link_name=dkDeviceCreate] native func device_create(maker: *DeviceMaker) -> Device;

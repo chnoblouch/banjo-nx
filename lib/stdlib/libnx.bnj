@@ -19,6 +19,9 @@ native func pad_update(pad: addr);
 @[link_name=appletMainLoop]
 native func applet_main_loop() -> bool;
 
+@[link_name=nwindowGetDefault]
+native func nwindow_get_default() -> addr;
+
 func pad_initialize_default(pad: addr) {
     var pad_ids: [u64; 2] = [0, 0x20];
     var pad_mask: u64 = 0;
