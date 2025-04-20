@@ -253,6 +253,7 @@ class DevkitProLinker(Linker):
             "main.o",
             "-L/opt/devkitpro/portlibs/switch/lib",
             "-L/opt/devkitpro/libnx/lib",
+            "-ldeko3dd",
             "-lnx",
         ]
 
