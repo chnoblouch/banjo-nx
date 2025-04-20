@@ -1,0 +1,308 @@
+struct Device {
+    var handle: addr;
+}
+
+struct MemBlock {
+    var handle: addr;
+}
+
+struct CmdBuf {
+    var handle: addr;
+}
+
+struct Queue {
+    var handle: addr;
+}
+
+struct ImageLayout {
+    var data: [u64; 16];
+}
+
+struct Image {
+    var data: [u64; 16];
+}
+
+struct Swapchain {
+    var handle: addr;
+}
+
+enum Result {
+    SUCCESS,
+    FAIL,
+    TIMEOUT,
+    OUT_OF_MEMORY,
+    NOT_IMPLEMENTED,
+    MISALIGNED_SIZE,
+    MISALIGNED_DATA,
+    BAD_INPUT,
+    BAD_FLAGS,
+    BAD_STATE,
+}
+
+type CmdList = addr;
+
+struct DeviceFlags {
+    const DEPTH_ZERO_TO_ONE: u32 = 0 as u32 << 8;
+	const DEPTH_MINUS_ONE_TO_ONE: u32 = 1 as u32 << 8;
+	const ORIGIN_UPPER_LEFT: u32 = 0 as u32 << 9;
+	const ORIGIN_LOWER_LEFT: u32 = 1 as u32 << 9;
+	const Y_AXIS_POINTS_UP: u32 = 0 as u32 << 10;
+	const Y_AXIS_POINTS_DOWN: u32 = 1 as u32 << 10;
+}
+
+struct DeviceMaker {
+    var user_data: addr;
+    var cb_debug: func(user_data: addr, context: *u8, result: Result, message: *u8) -> void;
+    var cb_alloc: func(user_data: addr, alignment: u64, size: u64, out: *addr) -> Result;
+    var cb_free: func(user_data: addr, mem: addr) -> void;
+    var flags: u32;
+}
+
+struct MemAccess {
+    const NONE: u32 = 0;
+    const UNCACHED: u32 = 1;
+    const CACHED: u32 = 2;
+    const MASK: u32 = 3;
+}
+
+struct MemBlockFlags {
+    const CPU_ACCESS_SHIFT: u32 = 0;
+    const GPU_ACCESS_SHIFT: u32 = 2;
+
+    const CPU_UNCACHED: u32 = MemAccess.UNCACHED << CPU_ACCESS_SHIFT;
+    const CPU_CACHED: u32 = MemAccess.CACHED << CPU_ACCESS_SHIFT;
+    const CPU_ACCESS_MASK: u32 = MemAccess.MASK << CPU_ACCESS_SHIFT;
+    const GPU_UNCACHED: u32 = MemAccess.UNCACHED << GPU_ACCESS_SHIFT;
+    const GPU_CACHED: u32 = MemAccess.CACHED << GPU_ACCESS_SHIFT;
+    const GPU_ACCESS_MASK: u32 = MemAccess.MASK << GPU_ACCESS_SHIFT;
+
+    const CODE: u32 = 1 as u32 << 4;
+    const IMAGE: u32 = 1 as u32 << 5;
+    const ZERO_FILL_INIT: u32 = 1 as u32 << 8;
+}
+
+struct MemBlockMaker {
+    var device: Device;
+    var size: u32;
+    var flags: u32;
+    var storage: addr;
+}
+
+struct CmdBufMaker {
+    var device: Device;
+    var user_data: addr;
+    var cb_add_mem: func(user_data: addr, cmdbuf: CmdBuf, min_req_size: usize);
+}
+
+struct QueueFlags {
+    const GRAPHICS: u32 = 1 as u32 << 0;
+    const COMPUTE: u32 = 1 as u32 << 1;
+    
+    const MEDIUM_PRIO: u32 = 0 as u32 << 2;
+    const HIGH_PRIO: u32 = 1 as u32 << 2;
+    const LOW_PRIO: u32 = 2 as u32 << 2;
+    const PRIO_MASK: u32 = 3 as u32 << 2;
+
+    const ENABLE_ZCULL: u32 = 0 as u32 << 4;
+    const DISABLE_ZCULL: u32 = 1 as u32 << 4;
+}
+
+struct QueueMaker {
+    var device: Device;
+    var flags: u32;
+    var command_memory_size: u32;
+    var flush_threshold: u32;
+    var per_warp_scratch_memory_size: u32;
+    var max_concurrent_compute_jobs: u32;
+}
+
+enum ImageType {
+    NONE = 0,
+    TYPE_2D = 2,
+}
+
+struct ImageFlags {
+    const HW_COMPRESSION: u32 = 1 as u32 << 2;
+    const USAGE_RENDER: u32 = 1 as u32 << 8;
+    const USAGE_PRESENT: u32 = 1 as u32 << 10;
+}
+
+enum ImageFormat {
+    NONE = 0,
+    RGBA8_UNORM = 28,
+}
+
+enum ImageSwizzle {
+    ZERO = 0,
+    ONE = 1,
+    RED = 2,
+    GREEN = 3,
+    BLUE = 4,
+    ALPHA = 5,
+}
+
+enum MsMode {
+    MODE_1X = 0,
+    MODE_2X = 1,
+    MODE_4X = 2,
+    MODE_8X = 3,
+}
+
+enum DsSource {
+    DEPTH = 0,
+    STENCIL = 1,
+}
+
+struct ImageLayoutMaker {
+    var device: Device;
+    var type_: ImageType;
+    var flags: u32;
+    var format: ImageFormat;
+    var ms_mode: MsMode;
+    var dimensions: [u32; 3];
+    var mip_levels: u32;
+    var pitch_stride_or_tile_size: u32;
+}
+
+struct ImageView {
+    var image: *Image;
+    var type_: ImageType;
+    var format: ImageFormat;
+    var swizzle: [ImageSwizzle; 4];
+    var ds_source: DsSource;
+    var layer_offset: u16;
+    var layer_count: u16;
+    var mip_level_offset: u8;
+    var mip_level_count: u8;
+}
+
+struct Viewport {
+    var x: f32;
+    var y: f32;
+    var width: f32;
+    var height: f32;
+    var near: f32;
+    var far: f32;
+}
+
+struct Scissor {
+    var x: u32;
+    var y: u32;
+    var width: u32;
+    var height: u32;
+}
+
+struct RasterizerState {
+    var data: u32;
+}
+
+struct ColorState {
+    var data: u32;
+}
+
+struct ColorWriteState {
+    var data: u32;
+}
+
+struct SwapchainMaker {
+    var device: Device;
+    var native_window: addr;
+    var images: **Image;
+    var num_images: u32;
+}
+
+func device_maker_defaults(maker: *DeviceMaker) {
+    maker.user_data = null;
+    maker.cb_debug = null;
+    maker.cb_alloc = null;
+    maker.cb_free = null;
+    maker.flags = DeviceFlags.DEPTH_ZERO_TO_ONE | DeviceFlags.ORIGIN_UPPER_LEFT;
+}
+
+func mem_block_maker_defaults(maker: *MemBlockMaker, device: Device, size: u32) {
+    maker.device = device;
+    maker.size = size;
+    maker.flags = MemBlockFlags.CPU_UNCACHED | MemBlockFlags.GPU_CACHED;
+    maker.storage = null;
+}
+
+func cmd_buf_maker_defaults(maker: *CmdBufMaker, device: Device) {
+    maker.device = device;
+    maker.user_data = null;
+    maker.cb_add_mem = null;
+}
+
+func queue_maker_defaults(maker: *QueueMaker, device: Device) {
+    maker.device = device;
+    maker.flags = QueueFlags.GRAPHICS | QueueFlags.COMPUTE | QueueFlags.MEDIUM_PRIO | QueueFlags.ENABLE_ZCULL;
+    maker.command_memory_size = 0x10000;
+    maker.flush_threshold = 0x2000;
+    maker.per_warp_scratch_memory_size = 0x800;
+    maker.max_concurrent_compute_jobs = 128;
+}
+
+func image_layout_maker_defaults(maker: *ImageLayoutMaker, device: Device) {
+	maker.device = device;
+	maker.type_ = ImageType.TYPE_2D;
+	maker.flags = 0;
+	maker.format = ImageFormat.NONE;
+	maker.ms_mode = MsMode.MODE_1X;
+	maker.dimensions = [0, 0, 0];
+	maker.mip_levels = 1;
+	maker.pitch_stride_or_tile_size = 0;
+}
+
+func image_view_defaults(obj: *ImageView, image: *Image) {
+	obj.image = image;
+	obj.type_ = ImageType.NONE;
+	obj.format = ImageFormat.NONE;
+    obj.swizzle = [ImageSwizzle.RED, ImageSwizzle.GREEN, ImageSwizzle.BLUE, ImageSwizzle.ALPHA];
+	obj.ds_source = DsSource.DEPTH;
+	obj.layer_offset = 0;
+	obj.layer_count = 0;
+	obj.mip_level_offset = 0;
+	obj.mip_level_count = 0;
+}
+
+func rasterizer_state_defaults(state: *RasterizerState) {
+    state.data = 0x00000751;
+}
+
+func color_state_defaults(state: *ColorState) {
+    state.data = 0x00080300;
+}
+
+func color_write_state_defaults(state: *ColorWriteState) {
+    state.data = 0xFFFFFFFF;
+}
+
+func swapchain_maker_defaults(maker: *SwapchainMaker, device: Device, native_window: addr, images: **Image, num_images: u32) {
+    maker.device = device;
+    maker.native_window = native_window;
+    maker.images = images;
+    maker.num_images = num_images;
+}
+
+@[link_name=dkDeviceCreate] native func device_create(maker: *DeviceMaker) -> Device;
+@[link_name=dkMemBlockCreate] native func mem_block_create(maker: *MemBlockMaker) -> MemBlock;
+@[link_name=dkCmdBufCreate] native func cmd_buf_create(maker: *CmdBufMaker) -> CmdBuf;
+@[link_name=dkCmdBufAddMemory] native func cmd_buf_add_memory(obj: CmdBuf, mem: MemBlock, offset: u32, size: u32);
+@[link_name=dkCmdBufFinishList] native func cmd_buf_finish_list(obj: CmdBuf) -> CmdList;
+@[link_name=dkCmdBufBindRenderTargets] native func cmd_buf_bind_render_targets(obj: CmdBuf, color_targets: **ImageView, num_color_targets: u32, depth_target: *ImageView);
+@[link_name=dkCmdBufBindRasterizerState] native func cmd_buf_bind_rasterizer_state(obj: CmdBuf, state: *RasterizerState);
+@[link_name=dkCmdBufBindColorState] native func cmd_buf_bind_color_state(obj: CmdBuf, state: *ColorState);
+@[link_name=dkCmdBufBindColorWriteState] native func cmd_buf_bind_color_write_state(obj: CmdBuf, state: *ColorWriteState);
+@[link_name=dkCmdBufSetViewports] native func cmd_buf_set_viewports(obj: CmdBuf, first_id: u32, viewports: *Viewport, num_viewports: u32);
+@[link_name=dkCmdBufSetScissors] native func cmd_buf_set_scissors(obj: CmdBuf, first_id: u32, scissors: *Scissor, num_scissors: u32);
+@[link_name=dkCmdBufClearColor] native func cmd_buf_clear_color(obj: CmdBuf, target_id: u32, clear_mask: u32, clear_data: addr);
+@[link_name=dkQueueCreate] native func queue_create(maker: *QueueMaker) -> Queue;
+@[link_name=dkQueueSubmitCommands] native func queue_submit_commands(obj: Queue, cmds: CmdList);
+@[link_name=dkQueueAcquireImage] native func queue_acquire_image(obj: Queue, swapchain: Swapchain) -> i32;
+@[link_name=dkQueuePresentImage] native func queue_present_image(obj: Queue, swapchain: Swapchain, image_slot: i32);
+@[link_name=dkImageLayoutInitialize] native func image_layout_initialize(obj: *ImageLayout, maker: *ImageLayoutMaker);
+@[link_name=dkImageInitialize] native func image_initialize(obj: *Image, layout: *ImageLayout, mem_block: MemBlock, offset: u32);
+@[link_name=dkSwapchainCreate] native func swapchain_create(maker: *SwapchainMaker) -> Swapchain;
+
+func cmd_buf_bind_render_target(obj: CmdBuf, color_target: *ImageView, depth_target: *ImageView) {
+    cmd_buf_bind_render_targets(obj, &color_target, 1, depth_target);
+}
