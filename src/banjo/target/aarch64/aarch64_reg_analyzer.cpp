@@ -20,14 +20,6 @@ AArch64RegAnalyzer::AArch64RegAnalyzer() {
     }
 }
 
-std::vector<mcode::PhysicalReg> AArch64RegAnalyzer::get_all_registers() {
-    std::vector<mcode::PhysicalReg> regs;
-    for (mcode::PhysicalReg i = 0; i < NUM_REGS; i++) {
-        regs.push_back(i);
-    }
-    return regs;
-}
-
 const std::vector<mcode::PhysicalReg> &AArch64RegAnalyzer::get_candidates(codegen::RegClass reg_class) {
     switch (reg_class) {
         case AArch64RegClass::GENERAL_PURPOSE: return general_purpose_regs;
@@ -86,8 +78,7 @@ std::vector<mcode::RegOp> AArch64RegAnalyzer::get_operands(mcode::InstrIter iter
     std::vector<mcode::RegOp> operands;
 
     if (instr.get_opcode() == BL || instr.get_opcode() == BLR) {
-        std::vector<mcode::PhysicalReg> physical_regs = block.get_func()->get_calling_conv()->get_volatile_regs();
-        for (mcode::PhysicalReg physical_reg : physical_regs) {
+        for (mcode::PhysicalReg physical_reg : block.get_func()->get_calling_conv()->get_volatile_regs()) {
             operands.push_back({mcode::Register::from_physical(physical_reg), mcode::RegUsage::KILL});
         }
 
@@ -103,12 +94,23 @@ std::vector<mcode::RegOp> AArch64RegAnalyzer::get_operands(mcode::InstrIter iter
 
     switch (instr.get_opcode()) {
         case MOV:
+        case FMOV: {
+            mcode::Operand &dst = instr.get_operand(0);
+            mcode::Operand &src = instr.get_operand(1);
+
+            if (!(dst.is_register() && src.is_register() && src.get_register() == dst.get_register())) {
+                collect_regs(dst, mcode::RegUsage::DEF, operands);
+                collect_regs(src, mcode::RegUsage::USE, operands);
+            }
+
+            break;
+        }
+
         case MOVZ:
         case MOVK:
         case LDR:
         case LDRB:
         case LDRH:
-        case FMOV:
         case FCVT:
         case SCVTF:
         case UCVTF:
@@ -152,7 +154,7 @@ std::vector<mcode::RegOp> AArch64RegAnalyzer::get_operands(mcode::InstrIter iter
         case UDIV:
         case AND:
         case ORR:
-        case EOR:
+        case EOR: // TODO: I guess we should handle the case where `src` and `dst` are the same register.
         case LSL:
         case ASR:
         case CSEL:

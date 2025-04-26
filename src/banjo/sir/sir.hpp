@@ -130,6 +130,7 @@ enum class ExprCategory : std::uint8_t {
     TYPE,
     VALUE_OR_TYPE,
     MODULE,
+    META_ACCESS,
 };
 
 class Expr {
@@ -695,6 +696,7 @@ struct BinaryExpr {
 
 enum class UnaryOp {
     NEG,
+    BIT_NOT,
     REF,
     DEREF,
     NOT,
@@ -873,6 +875,9 @@ struct DotExpr {
 enum class PseudoTypeKind {
     INT_LITERAL,
     FP_LITERAL,
+    NULL_LITERAL,
+    NONE_LITERAL,
+    UNDEFINED_LITERAL,
     STRING_LITERAL,
     ARRAY_LITERAL,
     MAP_LITERAL,

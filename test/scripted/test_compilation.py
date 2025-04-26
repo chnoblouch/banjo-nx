@@ -8,8 +8,8 @@ from framework import ProcessResult, TestResult, run_process, run_tests, find_ex
 
 
 SKIPPED_TESTS = [
-    "errors.expected_integer.0",
     "errors.expected_integer.1",
+    "errors.expected_integer.2",
     "errors.expr_category.decl.0",
     "errors.expr_category.decl.3",
     "errors.expr_category.decl.7",
@@ -265,7 +265,7 @@ def run_executable(test):
         if is_linux:
             subprocess.run(["clang", "-fuse-ld=lld", "-lm", "-otest", "main.o"])
         else:
-            subprocess.run(["clang", "-fuse-ld=lld", "-otest", "main.o"])
+            subprocess.run(["clang", "-otest", "main.o"])
 
         os.remove("main.o")
 

@@ -37,8 +37,8 @@ void SROAPass::run(ssa::Function *func) {
         disable_invalid_splits(block);
     }
 
-    // Recollect member pointers because some of them might have been invalidated
-    // during the previous step.
+    // Recollect member pointers because some of them might have been invalidated during the
+    // previous step.
     stack_ptr_defs = root_ptr_defs;
     collect_stack_ptr_defs(*func);
 
@@ -80,11 +80,9 @@ void SROAPass::collect_stack_values(ssa::BasicBlockIter block_iter) {
         stack_ptr_defs.insert({*iter->get_dest(), index});
 
         // Disable splitting if there is an array member.
-        if (type.is_struct()) {
-            for (const ssa::StructureMember &member : type.get_struct()->members) {
-                if (member.type.get_array_length() != 1) {
-                    continue;
-                }
+        for (const ssa::StructureMember &member : type.get_struct()->members) {
+            if (member.type.get_array_length() != 1) {
+                continue;
             }
         }
 
@@ -116,8 +114,8 @@ void SROAPass::collect_members(unsigned val_index) {
 
 void SROAPass::disable_invalid_splits(ssa::BasicBlock &block) {
     for (ssa::InstrIter iter = block.begin(); iter != block.end(); ++iter) {
-        // Memberptr instructions can be removed. Their destination register will be replaced
-        // by the new replaced by the allocation during splitting.
+        // Memberptr instructions can be removed. Their destination register will be replaced by the
+        // new replaced by the allocation during splitting.
         if (iter->get_opcode() == ssa::Opcode::MEMBERPTR && iter->get_operand(1).is_register()) {
             continue;
         }
@@ -182,7 +180,16 @@ void SROAPass::collect_member_ptr_defs(PassUtils::UseMap &use_map, ssa::VirtualR
         }
 
         ssa::VirtualRegister dst = *use->get_dest();
+        ssa::Type type = use->get_operand(0).get_type();
         unsigned index = use->get_operand(2).get_int_immediate().to_u64();
+
+        if (type != value.type) {
+            // Disable splitting if the memberptr instruction uses a different base type
+            // than allocated because that breaks some assumptions about field indices.
+            // TODO: Fix this.
+            value.members = {};
+            return;
+        }
 
         unsigned member_value_index = (*value.members)[index];
         StackValue &member = stack_values[member_value_index];
@@ -246,18 +253,19 @@ void SROAPass::copy_members(InsertionContext &ctx, Ref dst, Ref src, const ssa::
             continue;
         }
 
-        ssa::VirtualRegister tmp_reg = ctx.func->next_virtual_reg();
+        ssa::Operand src_operand = ssa::Operand::from_register(*member_src.ptr, ssa::Primitive::ADDR);
+        ssa::Operand dst_operand = ssa::Operand::from_register(*member_dst.ptr, ssa::Primitive::ADDR);
+        ssa::Operand type_operand = ssa::Operand::from_type(member_type);
 
-        // clang-format off
-        ctx.block.insert_before(ctx.instr, ssa::Instruction(ssa::Opcode::LOAD, tmp_reg, {
-            ssa::Operand::from_type(member_type),
-            ssa::Operand::from_register(*member_src.ptr, ssa::Primitive::ADDR)
-        }));
-        ctx.block.insert_before(ctx.instr, ssa::Instruction(ssa::Opcode::STORE, {
-            ssa::Operand::from_register(tmp_reg, member_type),
-            ssa::Operand::from_register(*member_dst.ptr, ssa::Primitive::ADDR)
-        }));
-        // clang-format on
+        if (get_target()->get_data_layout().fits_in_register(member_type)) {
+            ssa::VirtualRegister tmp_reg = ctx.func->next_virtual_reg();
+            ssa::Operand tmp_operand = ssa::Operand::from_register(tmp_reg, member_type);
+
+            ctx.block.insert_before(ctx.instr, {ssa::Opcode::LOAD, tmp_reg, {type_operand, src_operand}});
+            ctx.block.insert_before(ctx.instr, ssa::Instruction(ssa::Opcode::STORE, {tmp_operand, dst_operand}));
+        } else {
+            ctx.block.insert_before(ctx.instr, {ssa::Opcode::COPY, {dst_operand, src_operand, type_operand}});
+        }
     }
 }
 

@@ -767,6 +767,7 @@ sir::Expr SIRGenerator::generate_expr(ASTNode *node) {
         case AST_OPERATOR_AND: return generate_binary_expr(node, sir::BinaryOp::AND);
         case AST_OPERATOR_OR: return generate_binary_expr(node, sir::BinaryOp::OR);
         case AST_OPERATOR_NEG: return generate_unary_expr(node, sir::UnaryOp::NEG);
+        case AST_OPERATOR_BIT_NOT: return generate_unary_expr(node, sir::UnaryOp::BIT_NOT);
         case AST_OPERATOR_REF: return generate_unary_expr(node, sir::UnaryOp::REF);
         case AST_STAR_EXPR: return generate_star_expr(node);
         case AST_OPERATOR_NOT: return generate_unary_expr(node, sir::UnaryOp::NOT);
@@ -1440,7 +1441,7 @@ sir::IdentExpr *SIRGenerator::generate_completion_token(ASTNode *node) {
     );
 }
 
-char SIRGenerator::decode_char(const std::string &value, unsigned &index) {
+char SIRGenerator::decode_char(std::string_view value, unsigned &index) {
     char c = value[index++];
 
     if (c == '\\') {
@@ -1453,7 +1454,7 @@ char SIRGenerator::decode_char(const std::string &value, unsigned &index) {
         else if (c == '\\') return '\\';
         else if (c == 'x') {
             index += 2;
-            return (char)std::stoi(value.substr(index - 2, 2), nullptr, 16);
+            return (char)std::stoi(std::string(value.substr(index - 2, 2)), nullptr, 16);
         }
     }
 

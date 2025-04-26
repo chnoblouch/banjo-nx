@@ -30,7 +30,8 @@ static const std::initializer_list<lang::ASTNodeType> NODES_WITH_BLOCKS{
 
 void Formatter::format(const std::filesystem::path &file_path) {
     std::ifstream stream(file_path);
-    lang::Lexer lexer(stream, lang::Lexer::Mode::FORMATTING);
+    lang::SourceReader reader = lang::SourceReader::read(stream);
+    lang::Lexer lexer(reader, lang::Lexer::Mode::FORMATTING);
     std::vector<lang::Token> tokens = lexer.tokenize();
 
     lang::Parser parser(tokens, {}, lang::Parser::Mode::FORMATTING);
@@ -138,6 +139,7 @@ void Formatter::print_node(lang::ASTNode *node) {
         case lang::ASTNodeType::AST_OPERATOR_AND: print_binary_expr(node, "&&"); break;
         case lang::ASTNodeType::AST_OPERATOR_OR: print_binary_expr(node, "||"); break;
         case lang::ASTNodeType::AST_OPERATOR_NEG: print_unary_expr(node, "-"); break;
+        case lang::ASTNodeType::AST_OPERATOR_BIT_NOT: print_unary_expr(node, "~"); break;
         case lang::ASTNodeType::AST_OPERATOR_REF: print_unary_expr(node, "&"); break;
         case lang::ASTNodeType::AST_STAR_EXPR: print_unary_expr(node, "*"); break;
         case lang::ASTNodeType::AST_OPERATOR_NOT: print_unary_expr(node, "!"); break;
@@ -679,8 +681,7 @@ void Formatter::print_struct_literal_entry(lang::ASTNode *node) {
     lang::ASTNode *name_node = node->first_child;
     lang::ASTNode *value_node = name_node->next_sibling;
 
-    if (value_node->type == lang::ASTNodeType::AST_IDENTIFIER &&
-        value_node->value == name_node->value) {
+    if (value_node->type == lang::ASTNodeType::AST_IDENTIFIER && value_node->value == name_node->value) {
         emit(name_node->value);
         return;
     }

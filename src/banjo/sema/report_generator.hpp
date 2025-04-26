@@ -105,6 +105,8 @@ public:
     void report_err_unexpected_array_length_type(const sir::Expr &expr);
     void report_err_negative_array_length(const sir::Expr &expr, LargeInt value);
     void report_err_unexpected_array_length(const sir::ArrayLiteral &array_literal, unsigned expected_count);
+    void report_err_cannot_negate(const sir::UnaryExpr &unary_expr);
+    void report_err_cannot_negate_unsigned(const sir::UnaryExpr &unary_expr);
     void report_err_expected_index(const sir::BracketExpr &bracket_expr);
     void report_err_too_many_indices(const sir::BracketExpr &bracket_expr);
     void report_err_unexpected_generic_arg_count(sir::BracketExpr &bracket_expr, sir::FuncDef &func_def);
@@ -143,6 +145,9 @@ public:
     void report_err_move_out_pointer(const sir::Expr &move);
     void report_err_move_out_deinit(const sir::Expr &move);
     void report_err_move_in_loop(const sir::Expr &move);
+
+    void report_err_invalid_meta_field(const sir::MetaFieldExpr &meta_field_expr);
+    void report_err_invalid_meta_method(const sir::MetaCallExpr &meta_call_expr);
 
     void report_warn_unreachable_code(const sir::Stmt &stmt);
 

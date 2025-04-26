@@ -157,6 +157,7 @@ ParseResult ExprParser::parse_unary_level() {
     ASTNodeType type;
     switch (token->type) {
         case TKN_MINUS: type = AST_OPERATOR_NEG; break;
+        case TKN_TILDE: type = AST_OPERATOR_BIT_NOT; break;
         case TKN_AND: type = AST_OPERATOR_REF; break;
         case TKN_STAR: type = AST_STAR_EXPR; break;
         case TKN_NOT: type = AST_OPERATOR_NOT; break;
@@ -260,13 +261,13 @@ ParseResult ExprParser::parse_number_literal() {
 
 ParseResult ExprParser::parse_char_literal() {
     Token *token = stream.consume();
-    std::string value = token->value.substr(1, token->value.size() - 2);
+    std::string value{token->value.substr(1, token->value.size() - 2)};
     return parser.create_node(AST_CHAR_LITERAL, value, token->range());
 }
 
 ParseResult ExprParser::parse_string_literal() {
     Token *token = stream.consume();
-    std::string value = token->value.substr(1, token->value.size() - 2);
+    std::string value{token->value.substr(1, token->value.size() - 2)};
     return parser.create_node(AST_STRING_LITERAL, value, token->range());
 }
 

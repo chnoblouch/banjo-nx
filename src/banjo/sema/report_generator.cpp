@@ -215,9 +215,16 @@ void ReportGenerator::report_err_operator_overload_not_found(const sir::BinaryEx
 }
 
 void ReportGenerator::report_err_operator_overload_not_found(const sir::UnaryExpr &unary_expr) {
-    ASSUME(unary_expr.op == sir::UnaryOp::NEG);
+    std::string_view operator_name;
+
+    switch (unary_expr.op) {
+        case sir::UnaryOp::NEG: operator_name = "-"; break;
+        case sir::UnaryOp::BIT_NOT: operator_name = "~"; break;
+        default: ASSERT_UNREACHABLE;
+    }
+
     std::string_view impl_name = sir::MagicMethods::look_up(unary_expr.op);
-    report_err_operator_overload_not_found(unary_expr.ast_node, unary_expr.value.get_type(), "-", impl_name);
+    report_err_operator_overload_not_found(unary_expr.ast_node, unary_expr.value.get_type(), operator_name, impl_name);
 }
 
 void ReportGenerator::report_err_operator_overload_not_found(const sir::StarExpr &star_expr) {
@@ -442,6 +449,14 @@ void ReportGenerator::report_err_unexpected_array_length(
     report_error(format_str, array_literal.ast_node, expected_count, array_literal.values.size());
 }
 
+void ReportGenerator::report_err_cannot_negate(const sir::UnaryExpr &unary_expr) {
+    report_error("cannot negate type '$'", unary_expr.ast_node, unary_expr.value.get_type());
+}
+
+void ReportGenerator::report_err_cannot_negate_unsigned(const sir::UnaryExpr &unary_expr) {
+    report_error("cannot negate unsigned type '$'", unary_expr.ast_node, unary_expr.value.get_type());
+}
+
 void ReportGenerator::report_err_expected_index(const sir::BracketExpr &bracket_expr) {
     // TODO: Range could be just brackets...
     report_error("expected an index", bracket_expr.ast_node);
@@ -650,6 +665,16 @@ void ReportGenerator::report_err_unexpected_generic_arg_count(
             generic_params
         )
         .report();
+}
+
+void ReportGenerator::report_err_invalid_meta_field(const sir::MetaFieldExpr &meta_field_expr) {
+    const sir::Ident &ident = meta_field_expr.field;
+    report_error("invalid meta field '$'", ident.ast_node, ident.value);
+}
+
+void ReportGenerator::report_err_invalid_meta_method(const sir::MetaCallExpr &meta_call_expr) {
+    const sir::Ident &ident = meta_call_expr.callee.as<sir::MetaFieldExpr>().field;
+    report_error("invalid meta method '$'", ident.ast_node, ident.value);
 }
 
 void ReportGenerator::report_warn_unreachable_code(const sir::Stmt &stmt) {

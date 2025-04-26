@@ -27,7 +27,6 @@ class X8664RegAnalyzer : public TargetRegAnalyzer {
 public:
     X8664RegAnalyzer();
 
-    std::vector<mcode::PhysicalReg> get_all_registers() override;
     const std::vector<mcode::PhysicalReg> &get_candidates(codegen::RegClass reg_class) override;
     std::vector<mcode::PhysicalReg> suggest_regs(codegen::RegAllocFunc &func, const codegen::Bundle &bundle) override;
     bool is_reg_overridden(mcode::Instruction &instr, mcode::BasicBlock &basic_block, mcode::PhysicalReg reg) override;
@@ -40,13 +39,12 @@ public:
 
 private:
     bool is_move_opcode(mcode::Opcode opcode);
-    bool is_float_operand(mcode::Opcode opcode, mcode::RegUsage usage);
     bool is_memory_operand_allowed(mcode::Instruction &instr);
+    mcode::Opcode get_move_opcode(codegen::RegClass reg_class, unsigned size);
 
-    void add_du_ops(mcode::Instruction &instr, std::vector<mcode::RegOp> &dst);
-    void add_udu_ops(mcode::Instruction &instr, std::vector<mcode::RegOp> &dst);
     void collect_regs(mcode::Operand &operand, mcode::RegUsage usage, std::vector<mcode::RegOp> &dst);
     void collect_addr_regs(mcode::Operand &operand, std::vector<mcode::RegOp> &dst);
+
 };
 
 } // namespace target
