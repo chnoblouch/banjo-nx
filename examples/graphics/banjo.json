@@ -1,5 +1,6 @@
 {
   "name": "graphics",
   "args": ["--optional-semicolons"],
+  "build_script": "build_script.py",
   "devkitpro.romfs_dir": "romfs"
 }

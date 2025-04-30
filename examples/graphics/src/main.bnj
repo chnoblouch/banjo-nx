@@ -41,8 +41,8 @@ func main() {
     var code_mem_block = mem_block_maker.create()
 
     var code_mem_offset: u32 = 0
-    var vertex_shader = load_shader("romfs:/shaders/triangle_vsh.dksh", &code_mem_block, &code_mem_offset)
-    var fragment_shader = load_shader("romfs:/shaders/triangle_fsh.dksh", &code_mem_block, &code_mem_offset)
+    var vertex_shader = load_shader("romfs:/shaders/triangle_vert.dksh", &code_mem_block, &code_mem_offset)
+    var fragment_shader = load_shader("romfs:/shaders/triangle_frag.dksh", &code_mem_block, &code_mem_offset)
 
     mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
     mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
