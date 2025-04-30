@@ -8,6 +8,10 @@ struct MemBlock {
     pub func get_cpu_addr(self) -> addr {
         return mem_block_get_cpu_addr(*self);
     }
+
+    pub func get_gpu_addr(self) -> GpuAddr {
+        return mem_block_get_gpu_addr(*self);
+    }
 }
 
 struct CmdBuf {
@@ -43,6 +47,27 @@ struct CmdBuf {
 
     pub func bind_color_write_state(self, state: *ColorWriteState) {
         cmd_buf_bind_color_write_state(*self, state);
+    }
+
+    pub func bind_vtx_attrib_state(self, attribs: *VtxAttribState, num_attribs: u32) {
+        cmd_buf_bind_vtx_attrib_state(*self, attribs, num_attribs);
+    }
+
+    pub func bind_vtx_buffer_state(self, buffers: *VtxBufferState, num_buffers: u32) {
+        cmd_buf_bind_vtx_buffer_state(*self, buffers, num_buffers);
+    }
+
+    pub func bind_vtx_buffer(self, id: u32, buf_addr: GpuAddr, buf_size: u32) {
+        var ext = BufExtents {
+            addr_: buf_addr,
+            size: buf_size,
+        };
+
+        self.bind_vtx_buffers(id, &ext, 1);
+    }
+
+    pub func bind_vtx_buffers(self, first_id: u32, extents: *BufExtents, num_buffers: u32) {
+        cmd_buf_bind_vtx_buffers(*self, first_id, extents, num_buffers)
     }
 
     pub func set_viewports(self, first_id: u32, viewports: *Viewport, num_viewports: u32) {
@@ -122,6 +147,7 @@ enum Result {
     BAD_STATE,
 }
 
+type GpuAddr = u64;
 type CmdList = addr;
 
 struct DeviceFlags {
@@ -288,12 +314,12 @@ enum Stage {
 
 struct StageFlag {
     const VERTEX: u32 = 1 as u32 << Stage.VERTEX as u32;
-	const TESS_CTRL: u32 = 1 as u32 << Stage.TESS_CTRL as u32;
-	const TESS_EVAL: u32 = 1 as u32 << Stage.TESS_EVAL as u32;
-	const GEOMETRY: u32 = 1 as u32 << Stage.GEOMETRY as u32;
-	const FRAGMENT: u32 = 1 as u32 << Stage.FRAGMENT as u32;
-	const COMPUTE: u32 = 1 as u32 << Stage.COMPUTE as u32;
-	const GRAPHICS_MASK: u32 = (1 as u32 << Stage.COMPUTE as u32) - 1;
+    const TESS_CTRL: u32 = 1 as u32 << Stage.TESS_CTRL as u32;
+    const TESS_EVAL: u32 = 1 as u32 << Stage.TESS_EVAL as u32;
+    const GEOMETRY: u32 = 1 as u32 << Stage.GEOMETRY as u32;
+    const FRAGMENT: u32 = 1 as u32 << Stage.FRAGMENT as u32;
+    const COMPUTE: u32 = 1 as u32 << Stage.COMPUTE as u32;
+    const GRAPHICS_MASK: u32 = (1 as u32 << Stage.COMPUTE as u32) - 1;
 }
 
 enum ImageType {
@@ -390,6 +416,11 @@ struct ImageView {
     }
 }
 
+struct BufExtents {
+    var addr_: GpuAddr;
+    var size: u32;
+}
+
 struct Viewport {
     var x: f32;
     var y: f32;
@@ -440,22 +471,101 @@ struct ColorWriteState {
     }
 }
 
+enum VtxAttribSize
+{
+    SIZE_1X32 = 0x12,
+    SIZE_2X32 = 0x04,
+    SIZE_3X32 = 0x02,
+    SIZE_4X32 = 0x01,
+
+    SIZE_1X16 = 0x1B,
+    SIZE_2X16 = 0x0F,
+    SIZE_3X16 = 0x05,
+    SIZE_4X16 = 0x03,
+
+    SIZE_1X8 = 0x1D,
+    SIZE_2X8 = 0x18,
+    SIZE_3X8 = 0x13,
+    SIZE_4X8 = 0x0A,
+
+    SIZE_10_10_10_2 = 0x30,
+    SIZE_11_11_10 = 0x31,
+}
+
+enum VtxAttribType {
+    NONE = 0,
+    SNORM = 1,
+    UNORM = 2,
+    SINT = 3,
+    UINT = 4,
+    USCALED = 5,
+    SSCALED = 6,
+    FLOAT = 7,
+}
+
+struct VtxAttribState {
+    struct Init {
+        var buffer_id: u32;
+        var is_fixed: bool;
+        var offset: u32;
+        var size: VtxAttribSize;
+        var type_: VtxAttribType;
+        var is_bgra: bool;
+    }
+
+    var data: u32;
+    
+    pub func new(init: Init) -> VtxAttribState {
+        var data: u32 = 0;
+        data |= init.buffer_id;
+        
+        if init.is_fixed {
+            data |= 1 as u32 << 6;
+        }
+
+        data |= init.offset << 7;
+        data |= init.size as u32 << 21;
+        data |= init.type_ as u32 << 27;
+        
+        if init.is_bgra {
+            data |= 1 as u32 << 31;
+        }
+
+        return VtxAttribState { data };
+    }
+}
+
+struct VtxBufferState {
+    struct Init {
+        var stride: u32;
+        var divisor: u32;
+    }
+
+    var data: [u32; 2];
+
+    pub func new(init: Init) -> VtxBufferState {
+        return VtxBufferState {
+            data: [init.stride, init.divisor],
+        };
+    }
+}
+
 enum Primitive {
     POINTS = 0,
-	LINES = 1,
-	LINE_LOOP = 2,
-	LINE_STRIP = 3,
-	TRIANGLES = 4,
-	TRIANGLE_STRIP = 5,
-	TRIANGLE_FAN = 6,
-	QUADS = 7,
-	QUAD_STRIP = 8,
-	POLYGON = 9,
-	LINES_ADJACENCY = 10,
-	LINE_STRIP_ADJACENCY = 11,
-	TRIANGLES_ADJACENCY = 12,
-	TRIANGLE_STRIP_ADJACENCY = 13,
-	PATCHES = 14,
+    LINES = 1,
+    LINE_LOOP = 2,
+    LINE_STRIP = 3,
+    TRIANGLES = 4,
+    TRIANGLE_STRIP = 5,
+    TRIANGLE_FAN = 6,
+    QUADS = 7,
+    QUAD_STRIP = 8,
+    POLYGON = 9,
+    LINES_ADJACENCY = 10,
+    LINE_STRIP_ADJACENCY = 11,
+    TRIANGLES_ADJACENCY = 12,
+    TRIANGLE_STRIP_ADJACENCY = 13,
+    PATCHES = 14,
 }
 
 struct SwapchainMaker {
@@ -481,6 +591,7 @@ struct SwapchainMaker {
 @[link_name=dkDeviceCreate] native func device_create(maker: *DeviceMaker) -> Device;
 @[link_name=dkMemBlockCreate] native func mem_block_create(maker: *MemBlockMaker) -> MemBlock;
 @[link_name=dkMemBlockGetCpuAddr] native func mem_block_get_cpu_addr(obj: MemBlock) -> addr;
+@[link_name=dkMemBlockGetGpuAddr] native func mem_block_get_gpu_addr(obj: MemBlock) -> GpuAddr;
 @[link_name=dkCmdBufCreate] native func cmd_buf_create(maker: *CmdBufMaker) -> CmdBuf;
 @[link_name=dkCmdBufAddMemory] native func cmd_buf_add_memory(obj: CmdBuf, mem: MemBlock, offset: u32, size: u32);
 @[link_name=dkCmdBufFinishList] native func cmd_buf_finish_list(obj: CmdBuf) -> CmdList;
@@ -489,6 +600,9 @@ struct SwapchainMaker {
 @[link_name=dkCmdBufBindRasterizerState] native func cmd_buf_bind_rasterizer_state(obj: CmdBuf, state: *RasterizerState);
 @[link_name=dkCmdBufBindColorState] native func cmd_buf_bind_color_state(obj: CmdBuf, state: *ColorState);
 @[link_name=dkCmdBufBindColorWriteState] native func cmd_buf_bind_color_write_state(obj: CmdBuf, state: *ColorWriteState);
+@[link_name=dkCmdBufBindVtxAttribState] native func cmd_buf_bind_vtx_attrib_state(obj: CmdBuf, attribs: *VtxAttribState, num_attribs: u32);
+@[link_name=dkCmdBufBindVtxBufferState] native func cmd_buf_bind_vtx_buffer_state(obj: CmdBuf, buffers: *VtxBufferState, num_buffers: u32);
+@[link_name=dkCmdBufBindVtxBuffers] native func cmd_buf_bind_vtx_buffers(obj: CmdBuf, first_id: u32, extents: *BufExtents, num_buffers: u32)
 @[link_name=dkCmdBufSetViewports] native func cmd_buf_set_viewports(obj: CmdBuf, first_id: u32, viewports: *Viewport, num_viewports: u32);
 @[link_name=dkCmdBufSetScissors] native func cmd_buf_set_scissors(obj: CmdBuf, first_id: u32, scissors: *Scissor, num_scissors: u32);
 @[link_name=dkCmdBufClearColor] native func cmd_buf_clear_color(obj: CmdBuf, target_id: u32, clear_mask: u32, clear_data: addr);

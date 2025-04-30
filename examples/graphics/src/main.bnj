@@ -7,6 +7,7 @@ const FB_WIDTH: u32 = 1280
 const FB_HEIGHT: u32 = 720
 
 const CODE_MEM_SIZE: u32 = 64 as u32 * 1024
+const DATA_MEM_SIZE: u32 = 4 as u32 * 1024
 const CMD_MEM_SIZE: u32 = 16 as u32 * 1024
 
 func main() {
@@ -44,6 +45,18 @@ func main() {
     var vertex_shader = load_shader("romfs:/shaders/triangle_vert.dksh", &code_mem_block, &code_mem_offset)
     var fragment_shader = load_shader("romfs:/shaders/triangle_frag.dksh", &code_mem_block, &code_mem_offset)
 
+    mem_block_maker = dk.MemBlockMaker.new(device, DATA_MEM_SIZE)
+    mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
+    var data_mem_block = mem_block_maker.create()
+
+    var vertices: Array[f32] = [
+        -1.0, -1.0,
+         1.0, -1.0,
+         0.0,  1.0,
+    ]
+
+    memory.copy(&vertices[0], data_mem_block.get_cpu_addr(), 4 * vertices.length)
+
     mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
     mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
     var cmd_buf_mem_block = mem_block_maker.create()
@@ -78,6 +91,20 @@ func main() {
     var color_state = dk.ColorState.new()
     var color_write_state = dk.ColorWriteState.new()
 
+    var vtx_attrib_state = dk.VtxAttribState.new({
+        buffer_id: 0,
+        is_fixed: false,
+        offset: 0,
+        size: dk.VtxAttribSize.SIZE_2X32,
+        type_: dk.VtxAttribType.FLOAT,
+        is_bgra: false,
+    })
+
+    var vtx_buffer_state = dk.VtxBufferState.new({
+        stride: 8,
+        divisor: 0,
+    })
+
     cmd_buf.set_viewports(0, &viewport, 1)
     cmd_buf.set_scissors(0, &scissor, 1)
     cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
@@ -85,6 +112,9 @@ func main() {
     cmd_buf.bind_rasterizer_state(&rasterizer_state)
     cmd_buf.bind_color_state(&color_state)
     cmd_buf.bind_color_write_state(&color_write_state)
+    cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 24)
+    cmd_buf.bind_vtx_attrib_state(&vtx_attrib_state, 1)
+    cmd_buf.bind_vtx_buffer_state(&vtx_buffer_state, 1)
     cmd_buf.draw(dk.Primitive.TRIANGLES, 3, 1, 0, 0)
     var cmd_render = cmd_buf.finish_list()
 
