@@ -16,12 +16,17 @@ class ELF2NRO(Program):
         elf_path = str(out_dir / f"{config.name}.elf")
         nro_path = str(out_dir / f"{config.name}.nro")
 
-        self.run_command([
+        command = [
             "/opt/devkitpro/tools/bin/elf2nro",
             elf_path,
             nro_path,
             "--icon=/opt/devkitpro/libnx/default_icon.jpg",
-        ])
+        ]
+
+        if config.devkitpro_romfs_dir:
+            command.append(f"--romfsdir={config.devkitpro_romfs_dir}")
+
+        self.run_command(command)
 
 
 class DevkitProToolchain(Toolchain):

@@ -28,6 +28,7 @@ class Configuration:
         self.linked_win_resources = []
         self.win_subsystem = "CONSOLE"
         self.macos_frameworks = []
+        self.devkitpro_romfs_dir = None
         self.build_script = []
         self.packages = []
 
@@ -59,6 +60,7 @@ def load_into(json_config, config: Configuration, target):
 
     config.win_subsystem = json_config.get("win.subsystem", config.win_subsystem)
     config.macos_frameworks = json_config.get("macos.frameworks", [])
+    config.devkitpro_romfs_dir = json_config.get("devkitpro.romfs_dir", None)
 
     if "targets" in json_config:
         if target.triple in json_config["targets"]:

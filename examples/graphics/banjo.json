@@ -1,4 +1,5 @@
 {
   "name": "graphics",
-  "args": ["--optional-semicolons"]
+  "args": ["--optional-semicolons"],
+  "devkitpro.romfs_dir": "romfs"
 }
