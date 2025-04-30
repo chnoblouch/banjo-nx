@@ -1,12 +1,17 @@
+use std.{memory, file.File, path.Path}
+
 use libnx as nx
 use deko3d as dk
 
 const FB_WIDTH: u32 = 1280
 const FB_HEIGHT: u32 = 720
 
+const CODE_MEM_SIZE: u32 = 64 as u32 * 1024
 const CMD_MEM_SIZE: u32 = 16 as u32 * 1024
 
 func main() {
+    nx.romfs_init()
+
     var device_maker = dk.DeviceMaker.new()
     var device = device_maker.create()
 
@@ -14,11 +19,11 @@ func main() {
     image_layout_maker.flags = dk.ImageFlags.USAGE_RENDER | dk.ImageFlags.USAGE_PRESENT | dk.ImageFlags.HW_COMPRESSION
     image_layout_maker.format = dk.ImageFormat.RGBA8_UNORM
     image_layout_maker.dimensions = [FB_WIDTH, FB_HEIGHT, 0]
-    var framebuffer_layout = dk.ImageLayout.initialize(&image_layout_maker)
+    var framebuffer_layout = image_layout_maker.initialize()
 
-    var framebuffer_size = framebuffer_layout.get_size() as u32;
-    var framebuffer_alignment = framebuffer_layout.get_alignment();
-    framebuffer_size = (framebuffer_size + framebuffer_alignment - 1) & ~(framebuffer_alignment - 1);
+    var framebuffer_size = framebuffer_layout.get_size() as u32
+    var framebuffer_alignment = framebuffer_layout.get_alignment()
+    framebuffer_size = (framebuffer_size + framebuffer_alignment - 1) & ~(framebuffer_alignment - 1)
 
     var mem_block_maker = dk.MemBlockMaker.new(device, framebuffer_size)
     mem_block_maker.flags = dk.MemBlockFlags.GPU_CACHED | dk.MemBlockFlags.IMAGE
@@ -30,6 +35,14 @@ func main() {
     var window = nx.nwindow_get_default()
     var swapchain_maker = dk.SwapchainMaker.new(device, window, &swapchain_image, 1)
     var swapchain = swapchain_maker.create()
+
+    mem_block_maker = dk.MemBlockMaker.new(device, CODE_MEM_SIZE)
+    mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED | dk.MemBlockFlags.CODE
+    var code_mem_block = mem_block_maker.create()
+
+    var code_mem_offset: u32 = 0
+    var vertex_shader = load_shader("romfs:/shaders/triangle_vsh.dksh", &code_mem_block, &code_mem_offset)
+    var fragment_shader = load_shader("romfs:/shaders/triangle_fsh.dksh", &code_mem_block, &code_mem_offset)
 
     mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
     mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
@@ -59,6 +72,7 @@ func main() {
         height: FB_HEIGHT,
     }
 
+    var shaders: [*dk.Shader; 2] = [&vertex_shader, &fragment_shader]
     var clear_color: [f32; 4] = [0.2, 0.7, 1.0, 1.0]
     var rasterizer_state = dk.RasterizerState.new()
     var color_state = dk.ColorState.new()
@@ -67,9 +81,11 @@ func main() {
     cmd_buf.set_viewports(0, &viewport, 1)
     cmd_buf.set_scissors(0, &scissor, 1)
     cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
+    cmd_buf.bind_shaders(dk.StageFlag.GRAPHICS_MASK, &shaders[0], 2)
     cmd_buf.bind_rasterizer_state(&rasterizer_state)
     cmd_buf.bind_color_state(&color_state)
     cmd_buf.bind_color_write_state(&color_write_state)
+    cmd_buf.draw(dk.Primitive.TRIANGLES, 3, 1, 0, 0)
     var cmd_render = cmd_buf.finish_list()
 
     var queue_maker = dk.QueueMaker.new(device)
@@ -82,4 +98,22 @@ func main() {
         render_queue.submit_commands(cmd_render)
         render_queue.present_image(swapchain, image_slot)
     }
+
+    nx.romfs_exist()
+}
+
+func load_shader(path: *u8, mem_block: *dk.MemBlock, mem_offset: *u32) -> dk.Shader {
+    var file = File.open(Path.from(path), File.Mode.READ).unwrap();
+    var read_result = file.read_all();
+
+    var size = read_result.1 as u32;
+    var offset = *mem_offset;
+    *mem_offset += (size + dk.SHADER_CODE_ALIGNMENT - 1) & ~(dk.SHADER_CODE_ALIGNMENT - 1);
+
+    var src = read_result.0;
+    var dst = mem_block.get_cpu_addr() + offset as addr;
+    memory.copy(src, dst, size as usize);
+
+    var shader_maker = dk.ShaderMaker.new(*mem_block, offset);
+    return shader_maker.initialize();
 }

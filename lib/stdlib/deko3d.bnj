@@ -4,6 +4,10 @@ struct Device {
 
 struct MemBlock {
     var handle: addr;
+
+    pub func get_cpu_addr(self) -> addr {
+        return mem_block_get_cpu_addr(*self);
+    }
 }
 
 struct CmdBuf {
@@ -15,6 +19,10 @@ struct CmdBuf {
 
     pub func finish_list(self) -> CmdList {
         return cmd_buf_finish_list(*self);
+    }
+
+    pub func bind_shaders(self, stage_mask: u32, shaders: **Shader, num_shaders: u32) {
+        cmd_buf_bind_shaders(*self, stage_mask, shaders, num_shaders);
     }
 
     pub func bind_render_target(self, color_target: *ImageView, depth_target: *ImageView) {
@@ -48,6 +56,10 @@ struct CmdBuf {
     pub func clear_color(self, target_id: u32, clear_mask: u32, clear_data: addr) {
         cmd_buf_clear_color(*self, target_id, clear_mask, clear_data);
     }
+
+    pub func draw(self, prim: Primitive, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32) {
+        cmd_buf_draw(*self, prim, vertex_count, instance_count, first_vertex, first_instance);
+    }
 }
 
 struct Queue {
@@ -66,15 +78,12 @@ struct Queue {
     }
 }
 
+struct Shader {
+    var data: [u64; 16];
+}
+
 struct ImageLayout {
     var data: [u64; 16];
-
-    # TODO: Is this safe?
-    pub func initialize(maker: *ImageLayoutMaker) -> ImageLayout {
-        var image_layout: ImageLayout;
-        image_layout_initialize(&image_layout, maker);
-        return image_layout;
-    }
 
     pub func get_size(self) -> u64 {
         return image_layout_get_size(self);
@@ -145,6 +154,8 @@ struct DeviceMaker {
         return device_create(self);
     }
 }
+
+const SHADER_CODE_ALIGNMENT: u32 = 0x100;
 
 struct MemAccess {
     const NONE: u32 = 0;
@@ -244,6 +255,47 @@ struct QueueMaker {
     }
 }
 
+struct ShaderMaker {
+    var code_mem: MemBlock;
+    var control: addr;
+    var code_offset: u32;
+    var program_id: u32;
+
+    pub func new(code_mem: MemBlock, code_offset: u32) -> ShaderMaker {
+        return ShaderMaker {
+            code_mem: code_mem,
+            control: null,
+            code_offset: code_offset,
+            program_id: 0,
+        };
+    }
+
+    pub func initialize(self) -> Shader {
+        var shader: Shader;
+        shader_initialize(&shader, self);
+        return shader;
+    }
+}
+
+enum Stage {
+    VERTEX = 0,
+    TESS_CTRL = 1,
+    TESS_EVAL = 2,
+    GEOMETRY = 3,
+    FRAGMENT = 4,
+    COMPUTE = 5,
+}
+
+struct StageFlag {
+    const VERTEX: u32 = 1 as u32 << Stage.VERTEX as u32;
+	const TESS_CTRL: u32 = 1 as u32 << Stage.TESS_CTRL as u32;
+	const TESS_EVAL: u32 = 1 as u32 << Stage.TESS_EVAL as u32;
+	const GEOMETRY: u32 = 1 as u32 << Stage.GEOMETRY as u32;
+	const FRAGMENT: u32 = 1 as u32 << Stage.FRAGMENT as u32;
+	const COMPUTE: u32 = 1 as u32 << Stage.COMPUTE as u32;
+	const GRAPHICS_MASK: u32 = (1 as u32 << Stage.COMPUTE as u32) - 1;
+}
+
 enum ImageType {
     NONE = 0,
     TYPE_2D = 2,
@@ -302,6 +354,13 @@ struct ImageLayoutMaker {
             mip_levels: 1,
             pitch_stride_or_tile_size: 0,
         };
+    }
+
+    # TODO: Is this safe?
+    pub func initialize(self) -> ImageLayout {
+        var image_layout: ImageLayout;
+        image_layout_initialize(&image_layout, self);
+        return image_layout;
     }
 }
 
@@ -381,6 +440,24 @@ struct ColorWriteState {
     }
 }
 
+enum Primitive {
+    POINTS = 0,
+	LINES = 1,
+	LINE_LOOP = 2,
+	LINE_STRIP = 3,
+	TRIANGLES = 4,
+	TRIANGLE_STRIP = 5,
+	TRIANGLE_FAN = 6,
+	QUADS = 7,
+	QUAD_STRIP = 8,
+	POLYGON = 9,
+	LINES_ADJACENCY = 10,
+	LINE_STRIP_ADJACENCY = 11,
+	TRIANGLES_ADJACENCY = 12,
+	TRIANGLE_STRIP_ADJACENCY = 13,
+	PATCHES = 14,
+}
+
 struct SwapchainMaker {
     var device: Device;
     var native_window: addr;
@@ -403,9 +480,11 @@ struct SwapchainMaker {
 
 @[link_name=dkDeviceCreate] native func device_create(maker: *DeviceMaker) -> Device;
 @[link_name=dkMemBlockCreate] native func mem_block_create(maker: *MemBlockMaker) -> MemBlock;
+@[link_name=dkMemBlockGetCpuAddr] native func mem_block_get_cpu_addr(obj: MemBlock) -> addr;
 @[link_name=dkCmdBufCreate] native func cmd_buf_create(maker: *CmdBufMaker) -> CmdBuf;
 @[link_name=dkCmdBufAddMemory] native func cmd_buf_add_memory(obj: CmdBuf, mem: MemBlock, offset: u32, size: u32);
 @[link_name=dkCmdBufFinishList] native func cmd_buf_finish_list(obj: CmdBuf) -> CmdList;
+@[link_name=dkCmdBufBindShaders] native func cmd_buf_bind_shaders(obj: CmdBuf, stage_mask: u32, shaders: **Shader, num_shaders: u32);
 @[link_name=dkCmdBufBindRenderTargets] native func cmd_buf_bind_render_targets(obj: CmdBuf, color_targets: **ImageView, num_color_targets: u32, depth_target: *ImageView);
 @[link_name=dkCmdBufBindRasterizerState] native func cmd_buf_bind_rasterizer_state(obj: CmdBuf, state: *RasterizerState);
 @[link_name=dkCmdBufBindColorState] native func cmd_buf_bind_color_state(obj: CmdBuf, state: *ColorState);
@@ -413,10 +492,12 @@ struct SwapchainMaker {
 @[link_name=dkCmdBufSetViewports] native func cmd_buf_set_viewports(obj: CmdBuf, first_id: u32, viewports: *Viewport, num_viewports: u32);
 @[link_name=dkCmdBufSetScissors] native func cmd_buf_set_scissors(obj: CmdBuf, first_id: u32, scissors: *Scissor, num_scissors: u32);
 @[link_name=dkCmdBufClearColor] native func cmd_buf_clear_color(obj: CmdBuf, target_id: u32, clear_mask: u32, clear_data: addr);
+@[link_name=dkCmdBufDraw] native func cmd_buf_draw(obj: CmdBuf, prim: Primitive, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32);
 @[link_name=dkQueueCreate] native func queue_create(maker: *QueueMaker) -> Queue;
 @[link_name=dkQueueSubmitCommands] native func queue_submit_commands(obj: Queue, cmds: CmdList);
 @[link_name=dkQueueAcquireImage] native func queue_acquire_image(obj: Queue, swapchain: Swapchain) -> i32;
 @[link_name=dkQueuePresentImage] native func queue_present_image(obj: Queue, swapchain: Swapchain, image_slot: i32);
+@[link_name=dkShaderInitialize] native func shader_initialize(obj: *Shader, maker: *ShaderMaker);
 @[link_name=dkImageLayoutInitialize] native func image_layout_initialize(obj: *ImageLayout, maker: *ImageLayoutMaker);
 @[link_name=dkImageLayoutGetSize] native func image_layout_get_size(obj: *ImageLayout) -> u64;
 @[link_name=dkImageLayoutGetAlignment] native func image_layout_get_alignment(obj: *ImageLayout) -> u32;
