@@ -8,18 +8,92 @@ struct MemBlock {
 
 struct CmdBuf {
     var handle: addr;
+
+    pub func add_memory(self, mem: MemBlock, offset: u32, size: u32) {
+        cmd_buf_add_memory(*self, mem, offset, size);
+    }
+
+    pub func finish_list(self) -> CmdList {
+        return cmd_buf_finish_list(*self);
+    }
+
+    pub func bind_render_target(self, color_target: *ImageView, depth_target: *ImageView) {
+        self.bind_render_targets(&color_target, 1, depth_target);
+    }
+
+    pub func bind_render_targets(self, color_targets: **ImageView, num_color_targets: u32, depth_target: *ImageView) {
+        cmd_buf_bind_render_targets(*self, color_targets, num_color_targets, depth_target);
+    }
+
+    pub func bind_rasterizer_state(self, state: *RasterizerState) {
+        cmd_buf_bind_rasterizer_state(*self, state);
+    }
+
+    pub func bind_color_state(self, state: *ColorState) {
+        cmd_buf_bind_color_state(*self, state);
+    }
+
+    pub func bind_color_write_state(self, state: *ColorWriteState) {
+        cmd_buf_bind_color_write_state(*self, state);
+    }
+
+    pub func set_viewports(self, first_id: u32, viewports: *Viewport, num_viewports: u32) {
+        cmd_buf_set_viewports(*self, first_id, viewports, num_viewports);
+    }
+
+    pub func set_scissors(self, first_id: u32, scissors: *Scissor, num_scissors: u32) {
+        cmd_buf_set_scissors(*self, first_id, scissors, num_scissors);
+    }
+
+    pub func clear_color(self, target_id: u32, clear_mask: u32, clear_data: addr) {
+        cmd_buf_clear_color(*self, target_id, clear_mask, clear_data);
+    }
 }
 
 struct Queue {
     var handle: addr;
+
+    pub func submit_commands(self, cmds: CmdList) {
+        queue_submit_commands(*self, cmds);
+    }
+
+    pub func acquire_image(self, swapchain: Swapchain) -> i32 {
+        return queue_acquire_image(*self, swapchain);
+    }
+
+    pub func present_image(self, swapchain: Swapchain, image_slot: i32) {
+        queue_present_image(*self, swapchain, image_slot);
+    }
 }
 
 struct ImageLayout {
     var data: [u64; 16];
+
+    # TODO: Is this safe?
+    pub func initialize(maker: *ImageLayoutMaker) -> ImageLayout {
+        var image_layout: ImageLayout;
+        image_layout_initialize(&image_layout, maker);
+        return image_layout;
+    }
+
+    pub func get_size(self) -> u64 {
+        return image_layout_get_size(self);
+    }
+
+    pub func get_alignment(self) -> u32 {
+        return image_layout_get_alignment(self);
+    }
 }
 
 struct Image {
     var data: [u64; 16];
+
+    # TODO: Is this safe?
+    pub func initialize(layout: *ImageLayout, mem_block: MemBlock, offset: u32) -> Image {
+        var image: Image;
+        image_initialize(&image, layout, mem_block, offset);
+        return image;
+    }
 }
 
 struct Swapchain {
@@ -66,6 +140,10 @@ struct DeviceMaker {
             flags: DeviceFlags.DEPTH_ZERO_TO_ONE | DeviceFlags.ORIGIN_UPPER_LEFT,
         };
     }
+
+    pub func create(self) -> Device {
+        return device_create(self);
+    }
 }
 
 struct MemAccess {
@@ -105,6 +183,10 @@ struct MemBlockMaker {
             storage: null,
         };
     }
+
+    pub func create(self) -> MemBlock {
+        return mem_block_create(self);
+    }
 }
 
 struct CmdBufMaker {
@@ -118,6 +200,10 @@ struct CmdBufMaker {
             user_data: null,
             cb_add_mem: null,
         };
+    }
+
+    pub func create(self) -> CmdBuf {
+        return cmd_buf_create(self);
     }
 }
 
@@ -151,6 +237,10 @@ struct QueueMaker {
             per_warp_scratch_memory_size: 0x800,
             max_concurrent_compute_jobs: 128,
         };
+    }
+
+    pub func create(self) -> Queue {
+        return queue_create(self);
     }
 }
 
@@ -297,13 +387,17 @@ struct SwapchainMaker {
     var images: **Image;
     var num_images: u32;
 
-    func new(device: Device, native_window: addr, images: **Image, num_images: u32) -> SwapchainMaker {
+    pub func new(device: Device, native_window: addr, images: **Image, num_images: u32) -> SwapchainMaker {
         return SwapchainMaker {
             device: device,
             native_window: native_window,
             images: images,
             num_images: num_images,
         };
+    }
+
+    pub func create(self) -> Swapchain {
+        return swapchain_create(self);
     }
 }
 
@@ -324,9 +418,7 @@ struct SwapchainMaker {
 @[link_name=dkQueueAcquireImage] native func queue_acquire_image(obj: Queue, swapchain: Swapchain) -> i32;
 @[link_name=dkQueuePresentImage] native func queue_present_image(obj: Queue, swapchain: Swapchain, image_slot: i32);
 @[link_name=dkImageLayoutInitialize] native func image_layout_initialize(obj: *ImageLayout, maker: *ImageLayoutMaker);
+@[link_name=dkImageLayoutGetSize] native func image_layout_get_size(obj: *ImageLayout) -> u64;
+@[link_name=dkImageLayoutGetAlignment] native func image_layout_get_alignment(obj: *ImageLayout) -> u32;
 @[link_name=dkImageInitialize] native func image_initialize(obj: *Image, layout: *ImageLayout, mem_block: MemBlock, offset: u32);
 @[link_name=dkSwapchainCreate] native func swapchain_create(maker: *SwapchainMaker) -> Swapchain;
-
-func cmd_buf_bind_render_target(obj: CmdBuf, color_target: *ImageView, depth_target: *ImageView) {
-    cmd_buf_bind_render_targets(obj, &color_target, 1, depth_target);
-}
