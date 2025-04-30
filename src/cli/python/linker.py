@@ -255,6 +255,7 @@ class DevkitProLinker(Linker):
             "-L/opt/devkitpro/libnx/lib",
             "-ldeko3dd",
             "-lnx",
+            "-lm",
         ]
 
         for library_path in input.config.library_paths:

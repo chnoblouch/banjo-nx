@@ -25,8 +25,25 @@ struct CmdBuf {
         return cmd_buf_finish_list(*self);
     }
 
+    pub func clear(self) {
+        cmd_buf_clear(*self);
+    }
+
     pub func bind_shaders(self, stage_mask: u32, shaders: **Shader, num_shaders: u32) {
         cmd_buf_bind_shaders(*self, stage_mask, shaders, num_shaders);
+    }
+
+    pub func bind_uniform_buffer(self, stage: Stage, id: u32, buf_addr: GpuAddr, buf_size: u32) {
+        var ext = BufExtents {
+            addr_: buf_addr,
+            size: buf_size,
+        };
+
+        self.bind_uniform_buffers(stage, id, &ext, 1);
+    }
+
+    pub func bind_uniform_buffers(self, stage: Stage, first_id: u32, extents: *BufExtents, num_buffers: u32) {
+        cmd_buf_bind_uniform_buffers(*self, stage, first_id, extents, num_buffers);
     }
 
     pub func bind_render_target(self, color_target: *ImageView, depth_target: *ImageView) {
@@ -85,10 +102,18 @@ struct CmdBuf {
     pub func draw(self, prim: Primitive, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32) {
         cmd_buf_draw(*self, prim, vertex_count, instance_count, first_vertex, first_instance);
     }
+
+    pub func push_constants(self, ubo_addr: GpuAddr, ubo_size: u32, offset: u32, size: u32, data: addr) {
+        cmd_buf_push_constants(*self, ubo_addr, ubo_size, offset, size, data);
+    }
 }
 
 struct Queue {
     var handle: addr;
+
+    pub func wait_idle(self) {
+        queue_wait_idle(*self);
+    }
 
     pub func submit_commands(self, cmds: CmdList) {
         queue_submit_commands(*self, cmds);
@@ -181,6 +206,7 @@ struct DeviceMaker {
     }
 }
 
+const UNIFORM_BUF_ALIGNMENT: u32 = 0x100;
 const SHADER_CODE_ALIGNMENT: u32 = 0x100;
 
 struct MemAccess {
@@ -595,7 +621,9 @@ struct SwapchainMaker {
 @[link_name=dkCmdBufCreate] native func cmd_buf_create(maker: *CmdBufMaker) -> CmdBuf;
 @[link_name=dkCmdBufAddMemory] native func cmd_buf_add_memory(obj: CmdBuf, mem: MemBlock, offset: u32, size: u32);
 @[link_name=dkCmdBufFinishList] native func cmd_buf_finish_list(obj: CmdBuf) -> CmdList;
+@[link_name=dkCmdBufClear] native func cmd_buf_clear(obj: CmdBuf);
 @[link_name=dkCmdBufBindShaders] native func cmd_buf_bind_shaders(obj: CmdBuf, stage_mask: u32, shaders: **Shader, num_shaders: u32);
+@[link_name=dkCmdBufBindUniformBuffers] native func cmd_buf_bind_uniform_buffers(obj: CmdBuf, stage: Stage, first_id: u32, extents: *BufExtents, num_buffers: u32);
 @[link_name=dkCmdBufBindRenderTargets] native func cmd_buf_bind_render_targets(obj: CmdBuf, color_targets: **ImageView, num_color_targets: u32, depth_target: *ImageView);
 @[link_name=dkCmdBufBindRasterizerState] native func cmd_buf_bind_rasterizer_state(obj: CmdBuf, state: *RasterizerState);
 @[link_name=dkCmdBufBindColorState] native func cmd_buf_bind_color_state(obj: CmdBuf, state: *ColorState);
@@ -607,7 +635,9 @@ struct SwapchainMaker {
 @[link_name=dkCmdBufSetScissors] native func cmd_buf_set_scissors(obj: CmdBuf, first_id: u32, scissors: *Scissor, num_scissors: u32);
 @[link_name=dkCmdBufClearColor] native func cmd_buf_clear_color(obj: CmdBuf, target_id: u32, clear_mask: u32, clear_data: addr);
 @[link_name=dkCmdBufDraw] native func cmd_buf_draw(obj: CmdBuf, prim: Primitive, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32);
+@[link_name=dkCmdBufPushConstants] native func cmd_buf_push_constants(obj: CmdBuf, ubo_addr: GpuAddr, ubo_size: u32, offset: u32, size: u32, data: addr);
 @[link_name=dkQueueCreate] native func queue_create(maker: *QueueMaker) -> Queue;
+@[link_name=dkQueueWaitIdle] native func queue_wait_idle(obj: Queue);
 @[link_name=dkQueueSubmitCommands] native func queue_submit_commands(obj: Queue, cmds: CmdList);
 @[link_name=dkQueueAcquireImage] native func queue_acquire_image(obj: Queue, swapchain: Swapchain) -> i32;
 @[link_name=dkQueuePresentImage] native func queue_present_image(obj: Queue, swapchain: Swapchain, image_slot: i32);

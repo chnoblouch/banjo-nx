@@ -1,10 +1,11 @@
-use std.{memory, file.File, path.Path}
+use std.{memory, math, file.File, path.Path, time.MonotonicTime}
 
 use libnx as nx
 use deko3d as dk
 
 const FB_WIDTH: u32 = 1280
 const FB_HEIGHT: u32 = 720
+const FB_NUM: u32 = 2
 
 const CODE_MEM_SIZE: u32 = 64 as u32 * 1024
 const DATA_MEM_SIZE: u32 = 4 as u32 * 1024
@@ -26,15 +27,25 @@ func main() {
     var framebuffer_alignment = framebuffer_layout.get_alignment()
     framebuffer_size = (framebuffer_size + framebuffer_alignment - 1) & ~(framebuffer_alignment - 1)
 
-    var mem_block_maker = dk.MemBlockMaker.new(device, framebuffer_size)
+    var mem_block_maker = dk.MemBlockMaker.new(device, FB_NUM * framebuffer_size)
     mem_block_maker.flags = dk.MemBlockFlags.GPU_CACHED | dk.MemBlockFlags.IMAGE
     var framebuffer_mem_block = mem_block_maker.create()
 
-    var framebuffer = dk.Image.initialize(&framebuffer_layout, framebuffer_mem_block, 0)
-    var swapchain_image: *dk.Image = &framebuffer
+    var framebuffers: [dk.Image; FB_NUM] = undefined
+    var swapchain_images: [*dk.Image; FB_NUM] = undefined
+
+    for i in 0..FB_NUM {
+        framebuffers[i] = dk.Image.initialize(
+            &framebuffer_layout,
+            framebuffer_mem_block,
+            i * framebuffer_size,
+        )
+
+        swapchain_images[i] = &framebuffers[i]
+    }
 
     var window = nx.nwindow_get_default()
-    var swapchain_maker = dk.SwapchainMaker.new(device, window, &swapchain_image, 1)
+    var swapchain_maker = dk.SwapchainMaker.new(device, window, &swapchain_images[0], FB_NUM)
     var swapchain = swapchain_maker.create()
 
     mem_block_maker = dk.MemBlockMaker.new(device, CODE_MEM_SIZE)
@@ -59,15 +70,19 @@ func main() {
 
     mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
     mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
-    var cmd_buf_mem_block = mem_block_maker.create()
+    var static_cmd_mem_block = mem_block_maker.create()
 
     var cmd_buf_maker = dk.CmdBufMaker.new(device)
-    var cmd_buf = cmd_buf_maker.create()
-    cmd_buf.add_memory(cmd_buf_mem_block, 0, CMD_MEM_SIZE)
+    var static_cmd_buf = cmd_buf_maker.create()
+    static_cmd_buf.add_memory(static_cmd_mem_block, 0, CMD_MEM_SIZE)
 
-    var image_view = dk.ImageView.new(&framebuffer)
-    cmd_buf.bind_render_target(&image_view, null)
-    var cmd_bind_framebuffer = cmd_buf.finish_list()
+    var cmds_bind_framebuffer: [dk.CmdList; FB_NUM] = undefined
+
+    for i in 0..FB_NUM {
+        var image_view = dk.ImageView.new(&framebuffers[i])
+        static_cmd_buf.bind_render_target(&image_view, null)
+        cmds_bind_framebuffer[i] = static_cmd_buf.finish_list()   
+    }
 
     var viewport = dk.Viewport {
         x: 0.0,
@@ -105,26 +120,44 @@ func main() {
         divisor: 0,
     })
 
-    cmd_buf.set_viewports(0, &viewport, 1)
-    cmd_buf.set_scissors(0, &scissor, 1)
-    cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
-    cmd_buf.bind_shaders(dk.StageFlag.GRAPHICS_MASK, &shaders[0], 2)
-    cmd_buf.bind_rasterizer_state(&rasterizer_state)
-    cmd_buf.bind_color_state(&color_state)
-    cmd_buf.bind_color_write_state(&color_write_state)
-    cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 24)
-    cmd_buf.bind_vtx_attrib_state(&vtx_attrib_state, 1)
-    cmd_buf.bind_vtx_buffer_state(&vtx_buffer_state, 1)
-    cmd_buf.draw(dk.Primitive.TRIANGLES, 3, 1, 0, 0)
-    var cmd_render = cmd_buf.finish_list()
+    static_cmd_buf.set_viewports(0, &viewport, 1)
+    static_cmd_buf.set_scissors(0, &scissor, 1)
+    static_cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
+    static_cmd_buf.bind_shaders(dk.StageFlag.GRAPHICS_MASK, &shaders[0], 2)
+    static_cmd_buf.bind_uniform_buffer(dk.Stage.VERTEX, 0, data_mem_block.get_gpu_addr() + 256, 8)
+    static_cmd_buf.bind_rasterizer_state(&rasterizer_state)
+    static_cmd_buf.bind_color_state(&color_state)
+    static_cmd_buf.bind_color_write_state(&color_write_state)
+    static_cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 24)
+    static_cmd_buf.bind_vtx_attrib_state(&vtx_attrib_state, 1)
+    static_cmd_buf.bind_vtx_buffer_state(&vtx_buffer_state, 1)
+    static_cmd_buf.draw(dk.Primitive.TRIANGLES, 3, 1, 0, 0)
+    var cmd_render = static_cmd_buf.finish_list()
+
+    mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
+    mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
+    var dynamic_cmd_mem_block = mem_block_maker.create()
+    var dynamic_cmd_buf = cmd_buf_maker.create()
 
     var queue_maker = dk.QueueMaker.new(device)
     queue_maker.flags = dk.QueueFlags.GRAPHICS
     var render_queue = queue_maker.create()
 
+    var start = MonotonicTime.now()
+
     while nx.applet_main_loop() {
+        dynamic_cmd_buf.clear()
+        dynamic_cmd_buf.add_memory(dynamic_cmd_mem_block, 0, CMD_MEM_SIZE)
+
+        var x = math.sin(start.elapsed().secs() as f32)
+        var translation: [f32; 2] = [x, 0.0]
+        dynamic_cmd_buf.push_constants(data_mem_block.get_gpu_addr() + 256, 256, 0, 8, &translation[0])
+
+        var cmd_dynamic = dynamic_cmd_buf.finish_list()
+
         var image_slot = render_queue.acquire_image(swapchain)
-        render_queue.submit_commands(cmd_bind_framebuffer)
+        render_queue.submit_commands(cmd_dynamic)
+        render_queue.submit_commands(cmds_bind_framebuffer[image_slot])
         render_queue.submit_commands(cmd_render)
         render_queue.present_image(swapchain, image_slot)
     }
