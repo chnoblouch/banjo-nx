@@ -1,0 +1,4 @@
+{
+  "name": "graphics",
+  "args": ["--optional-semicolons"]
+}

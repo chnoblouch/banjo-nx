@@ -1,0 +1,85 @@
+use libnx as nx
+use deko3d as dk
+
+const FB_WIDTH: u32 = 1280
+const FB_HEIGHT: u32 = 720
+
+const CMD_MEM_SIZE: u32 = 16 as u32 * 1024
+
+func main() {
+    var device_maker = dk.DeviceMaker.new()
+    var device = device_maker.create()
+
+    var image_layout_maker = dk.ImageLayoutMaker.new(device)
+    image_layout_maker.flags = dk.ImageFlags.USAGE_RENDER | dk.ImageFlags.USAGE_PRESENT | dk.ImageFlags.HW_COMPRESSION
+    image_layout_maker.format = dk.ImageFormat.RGBA8_UNORM
+    image_layout_maker.dimensions = [FB_WIDTH, FB_HEIGHT, 0]
+    var framebuffer_layout = dk.ImageLayout.initialize(&image_layout_maker)
+
+    var framebuffer_size = framebuffer_layout.get_size() as u32;
+    var framebuffer_alignment = framebuffer_layout.get_alignment();
+    framebuffer_size = (framebuffer_size + framebuffer_alignment - 1) & ~(framebuffer_alignment - 1);
+
+    var mem_block_maker = dk.MemBlockMaker.new(device, framebuffer_size)
+    mem_block_maker.flags = dk.MemBlockFlags.GPU_CACHED | dk.MemBlockFlags.IMAGE
+    var framebuffer_mem_block = mem_block_maker.create()
+
+    var framebuffer = dk.Image.initialize(&framebuffer_layout, framebuffer_mem_block, 0)
+    var swapchain_image: *dk.Image = &framebuffer
+
+    var window = nx.nwindow_get_default()
+    var swapchain_maker = dk.SwapchainMaker.new(device, window, &swapchain_image, 1)
+    var swapchain = swapchain_maker.create()
+
+    mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
+    mem_block_maker.flags = dk.MemBlockFlags.CPU_UNCACHED | dk.MemBlockFlags.GPU_CACHED
+    var cmd_buf_mem_block = mem_block_maker.create()
+
+    var cmd_buf_maker = dk.CmdBufMaker.new(device)
+    var cmd_buf = cmd_buf_maker.create()
+    cmd_buf.add_memory(cmd_buf_mem_block, 0, CMD_MEM_SIZE)
+
+    var image_view = dk.ImageView.new(&framebuffer)
+    cmd_buf.bind_render_target(&image_view, null)
+    var cmd_bind_framebuffer = cmd_buf.finish_list()
+
+    var viewport = dk.Viewport {
+        x: 0.0,
+        y: 0.0,
+        width: FB_WIDTH as f32,
+        height: FB_HEIGHT as f32,
+        near: 0.0,
+        far: 1.0,
+    }
+
+    var scissor = dk.Scissor {
+        x: 0,
+        y: 0,
+        width: FB_WIDTH,
+        height: FB_HEIGHT,
+    }
+
+    var clear_color: [f32; 4] = [0.2, 0.7, 1.0, 1.0]
+    var rasterizer_state = dk.RasterizerState.new()
+    var color_state = dk.ColorState.new()
+    var color_write_state = dk.ColorWriteState.new()
+
+    cmd_buf.set_viewports(0, &viewport, 1)
+    cmd_buf.set_scissors(0, &scissor, 1)
+    cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
+    cmd_buf.bind_rasterizer_state(&rasterizer_state)
+    cmd_buf.bind_color_state(&color_state)
+    cmd_buf.bind_color_write_state(&color_write_state)
+    var cmd_render = cmd_buf.finish_list()
+
+    var queue_maker = dk.QueueMaker.new(device)
+    queue_maker.flags = dk.QueueFlags.GRAPHICS
+    var render_queue = queue_maker.create()
+
+    while nx.applet_main_loop() {
+        var image_slot = render_queue.acquire_image(swapchain)
+        render_queue.submit_commands(cmd_bind_framebuffer)
+        render_queue.submit_commands(cmd_render)
+        render_queue.present_image(swapchain, image_slot)
+    }
+}
