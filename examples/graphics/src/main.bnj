@@ -14,6 +14,11 @@ const CMD_MEM_SIZE: u32 = 16 as u32 * 1024
 func main() {
     nx.romfs_init()
 
+    nx.pad_configure_input(1, nx.HidNpadStyleTag.STANDARD)
+
+    var pad: nx.PadState
+    nx.pad_initialize_default(&pad)
+
     var device_maker = dk.DeviceMaker.new()
     var device = device_maker.create()
 
@@ -199,14 +204,29 @@ func main() {
     var render_queue = queue_maker.create()
 
     var start = MonotonicTime.now()
+    var last_time = 0.0
+    var rotation = 0.0
 
     while nx.applet_main_loop() {
+        nx.pad_update(&pad)
+        
+        if nx.pad_get_buttons_down(&pad) & nx.HidNpadButton.PLUS != 0 {
+            break
+        }
+
+        var now = start.elapsed().secs() as f32
+        var dt = now - last_time
+        last_time = now
+
+        if nx.pad_get_buttons(&pad) & nx.HidNpadButton.ANY_RIGHT != 0 {
+            rotation += 90.0 * dt
+        }
+
         dynamic_cmd_buf.clear()
         dynamic_cmd_buf.add_memory(dynamic_cmd_mem_block, 0, CMD_MEM_SIZE)
 
-        var t = start.elapsed().secs() as f32
         var projection_matrix = Mat4.projection(0.1, 1000.0, 70.0, FB_WIDTH as f32 / FB_HEIGHT as f32)
-        var model_matrix = Mat4.translation(0.0, 0.0, -2.0) * Mat4.rotation(0.0, 1.0, 0.0, 90.0 * t);
+        var model_matrix = Mat4.translation(0.0, 0.0, -2.0) * Mat4.rotation(0.0, 1.0, 0.0, rotation);
 
         var matrix = (projection_matrix * model_matrix).transposed()
         dynamic_cmd_buf.push_constants(data_mem_block.get_gpu_addr() + 1024, 256, 0, 64, &matrix)

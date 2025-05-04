@@ -1,3 +1,86 @@
+struct HidNpadStyleTag {
+    const FULL_KEY: u32 = 1 as u32 << 0;
+    const HANDHELD: u32 = 1 as u32 << 1;
+    const JOY_DUAL: u32 = 1 as u32 << 2;
+    const JOY_LEFT: u32 = 1 as u32 << 3;
+    const JOY_RIGHT: u32 = 1 as u32 << 4;
+    const GC: u32 = 1 as u32 << 5;
+    const PALMA: u32 = 1 as u32 << 6;
+    const LARK: u32 = 1 as u32 << 7;
+    const HANDHELD_LARK: u32 = 1 as u32 << 8;
+    const LUCIA: u32 = 1 as u32 << 9;
+    const LAGON: u32 = 1 as u32 << 10;
+    const LAGER: u32 = 1 as u32 << 11;
+    const SYSTEM_EXT: u32 = 1 as u32 << 29;
+    const SYSTEM: u32 = 1 as u32 << 30;
+
+    const FULL_CTRL: u32 = FULL_KEY | HANDHELD | JOY_DUAL;
+    const STANDARD: u32 = FULL_CTRL | JOY_LEFT | JOY_RIGHT;
+}
+
+struct HidNpadButton {
+    const A: u64 = 1 as u64 << 0;
+    const B: u64 = 1 as u64 << 1;
+    const X: u64 = 1 as u64 << 2;
+    const Y: u64 = 1 as u64 << 3;
+    const STICK_L: u64 = 1 as u64 << 4;
+    const STICK_R: u64 = 1 as u64 << 5;
+    const L: u64 = 1 as u64 << 6;
+    const R: u64 = 1 as u64 << 7;
+    const ZL: u64 = 1 as u64 << 8;
+    const ZR: u64 = 1 as u64 << 9;
+    const PLUS: u64 = 1 as u64 << 10;
+    const MINUS: u64 = 1 as u64 << 11;
+    const LEFT: u64 = 1 as u64 << 12;
+    const UP: u64 = 1 as u64 << 13;
+    const RIGHT: u64 = 1 as u64 << 14;
+    const DOWN: u64 = 1 as u64 << 15;
+    const STICK_L_LEFT: u64 = 1 as u64 << 16;
+    const STICK_L_UP: u64 = 1 as u64 << 17;
+    const STICK_L_RIGHT: u64 = 1 as u64 << 18;
+    const STICK_L_DOWN: u64 = 1 as u64 << 19;
+    const STICK_R_LEFT: u64 = 1 as u64 << 20;
+    const STICK_R_UP: u64 = 1 as u64 << 21;
+    const STICK_R_RIGHT: u64 = 1 as u64 << 22;
+    const STICK_R_DOWN: u64 = 1 as u64 << 23;
+    const LEFT_SL: u64 = 1 as u64 << 24;
+    const LEFT_SR: u64 = 1 as u64 << 25;
+    const RIGHT_SL: u64 = 1 as u64 << 26;
+    const RIGHT_SR: u64 = 1 as u64 << 27;
+    const PALMA: u64 = 1 as u64 << 28;
+    const VERIFICATION: u64 = 1 as u64 << 29;
+    const HANDHELD_LEFT_B: u64 = 1 as u64 << 30;
+    const LAGON_C_LEFT: u64 = 1 as u64 << 31;
+    const LAGON_C_UP: u64 = 1 as u64 << 32;
+    const LAGON_C_RIGHT: u64 = 1 as u64 << 33;
+    const LAGON_C_DOWN: u64 = 1 as u64 << 34;
+
+    const ANY_LEFT: u64 = LEFT | STICK_L_LEFT | STICK_R_LEFT;
+    const ANY_UP: u64 = UP | STICK_L_UP | STICK_R_UP;
+    const ANY_RIGHT: u64 = RIGHT | STICK_L_RIGHT | STICK_R_RIGHT;
+    const ANY_DOWN: u64 = DOWN | STICK_L_DOWN | STICK_R_DOWN;
+    const ANY_SL: u64 = LEFT_SL | RIGHT_SL;
+    const ANY_SR: u64 = LEFT_SR | RIGHT_SR;
+}
+
+struct HidAnalogStickState {
+    var x: i32;
+    var y: i32;
+}
+
+struct PadState {
+    var id_mask: u8;
+    var active_id_mask: u8;
+    var read_handheld: bool;
+    var active_handheld: bool;
+    var style_set: u32;
+    var attributes: u32;
+    var buttons_cur: u64;
+    var buttons_old: u64;
+    var sticks: [HidAnalogStickState; 2];
+    var gc_triggers: [u32; 2];
+}
+
 @[link_name=consoleInit]
 native func console_init(console: addr) -> addr;
 
@@ -11,10 +94,10 @@ native func console_exit(console: addr);
 native func pad_configure_input(max_players: u32, style_set: u32);
 
 @[link_name=padInitializeWithMask]
-native func pad_initialize_with_mask(pad: addr, mask: u64);
+native func pad_initialize_with_mask(pad: *PadState, mask: u64);
 
 @[link_name=padUpdate]
-native func pad_update(pad: addr);
+native func pad_update(pad: *PadState);
 
 @[link_name=appletMainLoop]
 native func applet_main_loop() -> bool;
@@ -28,7 +111,7 @@ native func romfs_unmount(name: *u8) -> u32;
 @[link_name=nwindowGetDefault]
 native func nwindow_get_default() -> addr;
 
-pub func pad_initialize_default(pad: addr) {
+pub func pad_initialize_default(pad: *PadState) {
     var pad_ids: [u64; 2] = [0, 0x20];
     var pad_mask: u64 = 0;
 
@@ -37,6 +120,18 @@ pub func pad_initialize_default(pad: addr) {
     }
 
     pad_initialize_with_mask(pad, pad_mask);
+}
+
+pub func pad_get_buttons(pad: *PadState) -> u64 {
+    return pad.buttons_cur;
+}
+
+pub func pad_get_buttons_down(pad: *PadState) -> u64 {
+    return ~pad.buttons_old & pad.buttons_cur;
+}
+
+pub func pad_get_buttons_up(pad: *PadState) -> u64 {
+    return pad.buttons_old & ~pad.buttons_cur;
 }
 
 pub func romfs_init() -> u32 {
