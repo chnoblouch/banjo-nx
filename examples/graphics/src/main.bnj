@@ -61,9 +61,12 @@ func main() {
     var data_mem_block = mem_block_maker.create()
 
     var vertices: Array[f32] = [
-        -1.0, -1.0,
-         1.0, -1.0,
-         0.0,  1.0,
+		 0.5,  0.5, 0.0, 1.0, 0.0, 0.0,
+		 0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
+		-0.5,  0.5, 0.0, 0.0, 0.0, 1.0,
+		-0.5,  0.5, 0.0, 0.0, 0.0, 1.0,
+		 0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
+		-0.5, -0.5, 0.0, 1.0, 1.0, 1.0,
     ]
 
     memory.copy(&vertices[0], data_mem_block.get_cpu_addr(), 4 * vertices.length)
@@ -81,6 +84,7 @@ func main() {
     for i in 0..FB_NUM {
         var image_view = dk.ImageView.new(&framebuffers[i])
         static_cmd_buf.bind_render_target(&image_view, null)
+
         cmds_bind_framebuffer[i] = static_cmd_buf.finish_list()   
     }
 
@@ -106,17 +110,27 @@ func main() {
     var color_state = dk.ColorState.new()
     var color_write_state = dk.ColorWriteState.new()
 
-    var vtx_attrib_state = dk.VtxAttribState.new({
-        buffer_id: 0,
-        is_fixed: false,
-        offset: 0,
-        size: dk.VtxAttribSize.SIZE_2X32,
-        type_: dk.VtxAttribType.FLOAT,
-        is_bgra: false,
-    })
+    var vtx_attrib_state: [dk.VtxAttribState; 2] = [
+        dk.VtxAttribState.new({
+            buffer_id: 0,
+            is_fixed: false,
+            offset: 0,
+            size: dk.VtxAttribSize.SIZE_3X32,
+            type_: dk.VtxAttribType.FLOAT,
+            is_bgra: false,
+        }),
+        dk.VtxAttribState.new({
+            buffer_id: 0,
+            is_fixed: false,
+            offset: 12,
+            size: dk.VtxAttribSize.SIZE_3X32,
+            type_: dk.VtxAttribType.FLOAT,
+            is_bgra: false,
+        }),
+    ]
 
     var vtx_buffer_state = dk.VtxBufferState.new({
-        stride: 8,
+        stride: 24,
         divisor: 0,
     })
 
@@ -124,14 +138,14 @@ func main() {
     static_cmd_buf.set_scissors(0, &scissor, 1)
     static_cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
     static_cmd_buf.bind_shaders(dk.StageFlag.GRAPHICS_MASK, &shaders[0], 2)
-    static_cmd_buf.bind_uniform_buffer(dk.Stage.VERTEX, 0, data_mem_block.get_gpu_addr() + 256, 8)
+    static_cmd_buf.bind_uniform_buffer(dk.Stage.VERTEX, 0, data_mem_block.get_gpu_addr() + 256, 64)
     static_cmd_buf.bind_rasterizer_state(&rasterizer_state)
     static_cmd_buf.bind_color_state(&color_state)
     static_cmd_buf.bind_color_write_state(&color_write_state)
-    static_cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 24)
-    static_cmd_buf.bind_vtx_attrib_state(&vtx_attrib_state, 1)
+    static_cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 144)
+    static_cmd_buf.bind_vtx_attrib_state(&vtx_attrib_state[0], 2)
     static_cmd_buf.bind_vtx_buffer_state(&vtx_buffer_state, 1)
-    static_cmd_buf.draw(dk.Primitive.TRIANGLES, 3, 1, 0, 0)
+    static_cmd_buf.draw(dk.Primitive.TRIANGLES, 6, 1, 0, 0)
     var cmd_render = static_cmd_buf.finish_list()
 
     mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
@@ -149,9 +163,12 @@ func main() {
         dynamic_cmd_buf.clear()
         dynamic_cmd_buf.add_memory(dynamic_cmd_mem_block, 0, CMD_MEM_SIZE)
 
-        var x = math.sin(start.elapsed().secs() as f32)
-        var translation: [f32; 2] = [x, 0.0]
-        dynamic_cmd_buf.push_constants(data_mem_block.get_gpu_addr() + 256, 256, 0, 8, &translation[0])
+        var t = start.elapsed().secs() as f32
+        var projection_matrix = Mat4.projection(0.1, 1000.0, 70.0, FB_WIDTH as f32 / FB_HEIGHT as f32)
+        var model_matrix = Mat4.translation(0.0, 0.0, -2.0) * Mat4.rotation(0.0, 1.0, 0.0, 90.0 * t);
+
+        var matrix = (projection_matrix * model_matrix).transposed()
+        dynamic_cmd_buf.push_constants(data_mem_block.get_gpu_addr() + 256, 256, 0, 64, &matrix)
 
         var cmd_dynamic = dynamic_cmd_buf.finish_list()
 
@@ -162,7 +179,7 @@ func main() {
         render_queue.present_image(swapchain, image_slot)
     }
 
-    nx.romfs_exist()
+    nx.romfs_exit()
 }
 
 func load_shader(path: *u8, mem_block: *dk.MemBlock, mem_offset: *u32) -> dk.Shader {
@@ -179,4 +196,111 @@ func load_shader(path: *u8, mem_block: *dk.MemBlock, mem_offset: *u32) -> dk.Sha
 
     var shader_maker = dk.ShaderMaker.new(*mem_block, offset);
     return shader_maker.initialize();
+}
+
+struct Mat4 {
+    var value: (f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32, f32);
+
+    pub func new(
+        m0: f32, m4: f32, m8: f32, m12: f32,
+        m1: f32, m5: f32, m9: f32, m13: f32,
+        m2: f32, m6: f32, m10: f32, m14: f32,
+        m3: f32, m7: f32, m11: f32, m15: f32,
+    ) -> Mat4 {
+        return Mat4 { value: (
+            m0, m4, m8, m12,
+            m1, m5, m9, m13,
+            m2, m6, m10, m14,
+            m3, m7, m11, m15,
+        ) };
+    }
+
+    pub func identity() -> Mat4 {
+        return Mat4 { value: (
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ) };
+    }
+
+    pub func translation(x: f32, y: f32, z: f32) -> Mat4 {
+        return Mat4 { value: (
+            1.0, 0.0, 0.0, x,
+            0.0, 1.0, 0.0, y,
+            0.0, 0.0, 1.0, z,
+            0.0, 0.0, 0.0, 1.0,
+        ) };
+    }
+
+    pub func rotation(x: f32, y: f32, z: f32, angle: f32) -> Mat4 {
+        var theta = math.deg2rad(angle);
+        var sin = math.sin(theta);
+        var cos = math.cos(theta);
+        var icos = 1.0 - cos;
+    
+        return Mat4 { value: (
+            cos + x*x*icos, x*y*icos - z*sin, x*z*icos + y*sin, 0.0,
+            y*x*icos + z*sin, cos + y*y*icos, y*z*icos - x*sin, 0.0,
+            z*x*icos - y*sin, z*y*icos + x*sin, cos + z*z*icos, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ) };
+    }
+
+    pub func scaling(x: f32, y: f32, z: f32) -> Mat4 {
+        return Mat4 { value: (
+            x, 0.0, 0.0, 0.0,
+            0.0, y, 0.0, 0.0,
+            0.0, 0.0, z, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ) };
+    }
+
+    pub func projection(near: f32, far: f32, fov: f32, aspect_ratio: f32) -> Mat4 {
+        var theta = math.tan(math.deg2rad(0.5 * fov));
+        var length = far - near;
+
+        return Mat4 { value: (
+            1.0 / (aspect_ratio * theta), 0.0, 0.0, 0.0,
+            0.0, 1.0 / theta, 0.0, 0.0,
+            0.0, 0.0, -(far - near) / length, -(far * near) / length,
+            0.0, 0.0, -1.0, 0.0,
+        ) };
+    }
+
+    pub func __mul__(self, rhs: Mat4) -> Mat4 {
+        var va = self.value;
+        var vb = rhs.value;
+
+        var v0 = va.0*vb.0 + va.1*vb.4 + va.2*vb.8 + va.3*vb.12;
+        var v1 = va.0*vb.1 + va.1*vb.5 + va.2*vb.9 + va.3*vb.13;
+        var v2 = va.0*vb.2 + va.1*vb.6 + va.2*vb.10 + va.3*vb.14;
+        var v3 = va.0*vb.3 + va.1*vb.7 + va.2*vb.11 + va.3*vb.15;
+
+        var v4 = va.4*vb.0 + va.5*vb.4 + va.6*vb.8 + va.7*vb.12;
+        var v5 = va.4*vb.1 + va.5*vb.5 + va.6*vb.9 + va.7*vb.13;
+        var v6 = va.4*vb.2 + va.5*vb.6 + va.6*vb.10 + va.7*vb.14;
+        var v7 = va.4*vb.3 + va.5*vb.7 + va.6*vb.11 + va.7*vb.15;
+
+        var v8 = va.8*vb.0 + va.9*vb.4 + va.10*vb.8 + va.11*vb.12;
+        var v9 = va.8*vb.1 + va.9*vb.5 + va.10*vb.9 + va.11*vb.13;
+        var v10 = va.8*vb.2 + va.9*vb.6 + va.10*vb.10 + va.11*vb.14;
+        var v11 = va.8*vb.3 + va.9*vb.7 + va.10*vb.11 + va.11*vb.15;
+
+        var v12 = va.12*vb.0 + va.13*vb.4 + va.14*vb.8 + va.15*vb.12;
+        var v13 = va.12*vb.1 + va.13*vb.5 + va.14*vb.9 + va.15*vb.13;
+        var v14 = va.12*vb.2 + va.13*vb.6 + va.14*vb.10 + va.15*vb.14;
+        var v15 = va.12*vb.3 + va.13*vb.7 + va.14*vb.11 + va.15*vb.15;
+
+        return Mat4 { value: (v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15) };
+    }
+
+    pub func transposed(self) -> Mat4 {
+        return Mat4 { value: (
+            self.value.0, self.value.4, self.value.8, self.value.12,
+            self.value.1, self.value.5, self.value.9, self.value.13,
+            self.value.2, self.value.6, self.value.10, self.value.14,
+            self.value.3, self.value.7, self.value.11, self.value.15,
+        ) };
+    }
 }

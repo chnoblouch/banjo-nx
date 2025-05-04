@@ -29,6 +29,10 @@ struct CmdBuf {
         cmd_buf_clear(*self);
     }
 
+    pub func barrier(self, mode: Barrier, invalidate_flags: u32) {
+        cmd_buf_barrier(*self, mode, invalidate_flags);
+    }
+
     pub func bind_shaders(self, stage_mask: u32, shaders: **Shader, num_shaders: u32) {
         cmd_buf_bind_shaders(*self, stage_mask, shaders, num_shaders);
     }
@@ -66,6 +70,10 @@ struct CmdBuf {
         cmd_buf_bind_color_write_state(*self, state);
     }
 
+    pub func bind_depth_stencil_state(self, state: *DepthStencilState) {
+        cmd_buf_bind_depth_stencil_state(*self, state);
+    }
+
     pub func bind_vtx_attrib_state(self, attribs: *VtxAttribState, num_attribs: u32) {
         cmd_buf_bind_vtx_attrib_state(*self, attribs, num_attribs);
     }
@@ -97,6 +105,14 @@ struct CmdBuf {
 
     pub func clear_color(self, target_id: u32, clear_mask: u32, clear_data: addr) {
         cmd_buf_clear_color(*self, target_id, clear_mask, clear_data);
+    }
+
+    pub func clear_depth_stencil(self, clear_depth: bool, depth_value: f32, stencil_mask: u8, stencil_value: u8) {
+        cmd_buf_clear_depth_stencil(*self, clear_depth, depth_value, stencil_mask, stencil_value);
+    }
+
+    pub func discard_depth_stencil(self) {
+        cmd_buf_discard_depth_stencil(*self);
     }
 
     pub func draw(self, prim: Primitive, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32) {
@@ -348,6 +364,14 @@ struct StageFlag {
     const GRAPHICS_MASK: u32 = (1 as u32 << Stage.COMPUTE as u32) - 1;
 }
 
+enum Barrier {
+    NONE = 0,
+    TILES = 1,
+    FRAGMENTS = 2,
+    PRIMITIVES = 3,
+    FULL = 4,
+}
+
 enum ImageType {
     NONE = 0,
     TYPE_2D = 2,
@@ -362,6 +386,7 @@ struct ImageFlags {
 enum ImageFormat {
     NONE = 0,
     RGBA8_UNORM = 28,
+    Z24S8 = 44,
 }
 
 enum ImageSwizzle {
@@ -497,6 +522,25 @@ struct ColorWriteState {
     }
 }
 
+enum StencilOp {
+    KEEP = 1,
+    ZERO = 2,
+    REPLACE = 3,
+    INCR = 4,
+    DECR = 5,
+    INVERT = 6,
+    INCR_WRAP = 7,
+    DECR_WRAP = 8,
+}
+
+struct DepthStencilState {
+    var data: u64;
+
+    pub func new() -> DepthStencilState {
+        return DepthStencilState { data: 0x8131813100000023 };
+    }
+}
+
 enum VtxAttribSize
 {
     SIZE_1X32 = 0x12,
@@ -622,18 +666,22 @@ struct SwapchainMaker {
 @[link_name=dkCmdBufAddMemory] native func cmd_buf_add_memory(obj: CmdBuf, mem: MemBlock, offset: u32, size: u32);
 @[link_name=dkCmdBufFinishList] native func cmd_buf_finish_list(obj: CmdBuf) -> CmdList;
 @[link_name=dkCmdBufClear] native func cmd_buf_clear(obj: CmdBuf);
+@[link_name=dkCmdBufBarrier] native func cmd_buf_barrier(obj: CmdBuf, mode: Barrier, invalidate_flags: u32);
 @[link_name=dkCmdBufBindShaders] native func cmd_buf_bind_shaders(obj: CmdBuf, stage_mask: u32, shaders: **Shader, num_shaders: u32);
 @[link_name=dkCmdBufBindUniformBuffers] native func cmd_buf_bind_uniform_buffers(obj: CmdBuf, stage: Stage, first_id: u32, extents: *BufExtents, num_buffers: u32);
 @[link_name=dkCmdBufBindRenderTargets] native func cmd_buf_bind_render_targets(obj: CmdBuf, color_targets: **ImageView, num_color_targets: u32, depth_target: *ImageView);
 @[link_name=dkCmdBufBindRasterizerState] native func cmd_buf_bind_rasterizer_state(obj: CmdBuf, state: *RasterizerState);
 @[link_name=dkCmdBufBindColorState] native func cmd_buf_bind_color_state(obj: CmdBuf, state: *ColorState);
 @[link_name=dkCmdBufBindColorWriteState] native func cmd_buf_bind_color_write_state(obj: CmdBuf, state: *ColorWriteState);
+@[link_name=dkCmdBufBindDepthStencilState] native func cmd_buf_bind_depth_stencil_state(obj: CmdBuf, state: *DepthStencilState);
 @[link_name=dkCmdBufBindVtxAttribState] native func cmd_buf_bind_vtx_attrib_state(obj: CmdBuf, attribs: *VtxAttribState, num_attribs: u32);
 @[link_name=dkCmdBufBindVtxBufferState] native func cmd_buf_bind_vtx_buffer_state(obj: CmdBuf, buffers: *VtxBufferState, num_buffers: u32);
 @[link_name=dkCmdBufBindVtxBuffers] native func cmd_buf_bind_vtx_buffers(obj: CmdBuf, first_id: u32, extents: *BufExtents, num_buffers: u32)
 @[link_name=dkCmdBufSetViewports] native func cmd_buf_set_viewports(obj: CmdBuf, first_id: u32, viewports: *Viewport, num_viewports: u32);
 @[link_name=dkCmdBufSetScissors] native func cmd_buf_set_scissors(obj: CmdBuf, first_id: u32, scissors: *Scissor, num_scissors: u32);
 @[link_name=dkCmdBufClearColor] native func cmd_buf_clear_color(obj: CmdBuf, target_id: u32, clear_mask: u32, clear_data: addr);
+@[link_name=dkCmdBufClearDepthStencil] native func cmd_buf_clear_depth_stencil(obj: CmdBuf, clear_depth: bool, depth_value: f32, stencil_mask: u8, stencil_value: u8);
+@[link_name=dkCmdBufDiscardDepthStencil] native func cmd_buf_discard_depth_stencil(obj: CmdBuf);
 @[link_name=dkCmdBufDraw] native func cmd_buf_draw(obj: CmdBuf, prim: Primitive, vertex_count: u32, instance_count: u32, first_vertex: u32, first_instance: u32);
 @[link_name=dkCmdBufPushConstants] native func cmd_buf_push_constants(obj: CmdBuf, ubo_addr: GpuAddr, ubo_size: u32, offset: u32, size: u32, data: addr);
 @[link_name=dkQueueCreate] native func queue_create(maker: *QueueMaker) -> Queue;

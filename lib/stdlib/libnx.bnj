@@ -43,6 +43,6 @@ pub func romfs_init() -> u32 {
     return romfs_mount_self("romfs");
 }
 
-pub func romfs_exist() -> u32 {
+pub func romfs_exit() -> u32 {
     return romfs_unmount("romfs");
 }
