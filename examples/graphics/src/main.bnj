@@ -61,12 +61,53 @@ func main() {
     var data_mem_block = mem_block_maker.create()
 
     var vertices: Array[f32] = [
-		 0.5,  0.5, 0.0, 1.0, 0.0, 0.0,
-		 0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
-		-0.5,  0.5, 0.0, 0.0, 0.0, 1.0,
-		-0.5,  0.5, 0.0, 0.0, 0.0, 1.0,
-		 0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
-		-0.5, -0.5, 0.0, 1.0, 1.0, 1.0,
+		# left
+		-0.5,  0.5, -0.5, 1.0, 1.0, 0.0,
+		-0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
+		-0.5,  0.5,  0.5, 1.0, 1.0, 0.0,
+		-0.5,  0.5,  0.5, 1.0, 1.0, 0.0,
+		-0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
+		-0.5, -0.5,  0.5, 1.0, 1.0, 0.0,
+
+		# right
+		 0.5,  0.5,  0.5, 1.0, 0.0, 0.0,
+		 0.5, -0.5,  0.5, 1.0, 0.0, 0.0,
+		 0.5,  0.5, -0.5, 1.0, 0.0, 0.0,
+		 0.5,  0.5, -0.5, 1.0, 0.0, 0.0,
+		 0.5, -0.5,  0.5, 1.0, 0.0, 0.0,
+		 0.5, -0.5, -0.5, 1.0, 0.0, 0.0,
+
+		# bottom
+		-0.5, -0.5,  0.5, 1.0, 0.0, 1.0,
+		-0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
+		 0.5, -0.5,  0.5, 1.0, 0.0, 1.0,
+		 0.5, -0.5,  0.5, 1.0, 0.0, 1.0,
+		-0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
+		 0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
+
+	    # top
+        -0.5,  0.5, -0.5, 0.0, 0.0, 1.0,
+		-0.5,  0.5,  0.5, 0.0, 0.0, 1.0,
+		 0.5,  0.5, -0.5, 0.0, 0.0, 1.0,
+		 0.5,  0.5, -0.5, 0.0, 0.0, 1.0,
+		-0.5,  0.5,  0.5, 0.0, 0.0, 1.0,
+		 0.5,  0.5,  0.5, 0.0, 0.0, 1.0,
+
+		# back
+		 0.5,  0.5, -0.5, 0.0, 1.0, 1.0,
+		 0.5, -0.5, -0.5, 0.0, 1.0, 1.0,
+		-0.5,  0.5, -0.5, 0.0, 1.0, 1.0,
+		-0.5,  0.5, -0.5, 0.0, 1.0, 1.0,
+		 0.5, -0.5, -0.5, 0.0, 1.0, 1.0,
+		-0.5, -0.5, -0.5, 0.0, 1.0, 1.0,
+	
+		# front
+		-0.5,  0.5,  0.5, 0.0, 1.0, 0.0,
+		-0.5, -0.5,  0.5, 0.0, 1.0, 0.0,
+		 0.5,  0.5,  0.5, 0.0, 1.0, 0.0,
+		 0.5,  0.5,  0.5, 0.0, 1.0, 0.0,
+		-0.5, -0.5,  0.5, 0.0, 1.0, 0.0,
+		 0.5, -0.5,  0.5, 0.0, 1.0, 0.0,
     ]
 
     memory.copy(&vertices[0], data_mem_block.get_cpu_addr(), 4 * vertices.length)
@@ -138,14 +179,14 @@ func main() {
     static_cmd_buf.set_scissors(0, &scissor, 1)
     static_cmd_buf.clear_color(0, dk.ColorMask.RGBA, &clear_color)
     static_cmd_buf.bind_shaders(dk.StageFlag.GRAPHICS_MASK, &shaders[0], 2)
-    static_cmd_buf.bind_uniform_buffer(dk.Stage.VERTEX, 0, data_mem_block.get_gpu_addr() + 256, 64)
+    static_cmd_buf.bind_uniform_buffer(dk.Stage.VERTEX, 0, data_mem_block.get_gpu_addr() + 1024, 64)
     static_cmd_buf.bind_rasterizer_state(&rasterizer_state)
     static_cmd_buf.bind_color_state(&color_state)
     static_cmd_buf.bind_color_write_state(&color_write_state)
-    static_cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 144)
+    static_cmd_buf.bind_vtx_buffer(0, data_mem_block.get_gpu_addr(), 864)
     static_cmd_buf.bind_vtx_attrib_state(&vtx_attrib_state[0], 2)
     static_cmd_buf.bind_vtx_buffer_state(&vtx_buffer_state, 1)
-    static_cmd_buf.draw(dk.Primitive.TRIANGLES, 6, 1, 0, 0)
+    static_cmd_buf.draw(dk.Primitive.TRIANGLES, 36, 1, 0, 0)
     var cmd_render = static_cmd_buf.finish_list()
 
     mem_block_maker = dk.MemBlockMaker.new(device, CMD_MEM_SIZE)
@@ -168,7 +209,7 @@ func main() {
         var model_matrix = Mat4.translation(0.0, 0.0, -2.0) * Mat4.rotation(0.0, 1.0, 0.0, 90.0 * t);
 
         var matrix = (projection_matrix * model_matrix).transposed()
-        dynamic_cmd_buf.push_constants(data_mem_block.get_gpu_addr() + 256, 256, 0, 64, &matrix)
+        dynamic_cmd_buf.push_constants(data_mem_block.get_gpu_addr() + 1024, 256, 0, 64, &matrix)
 
         var cmd_dynamic = dynamic_cmd_buf.finish_list()
 
